@@ -6,8 +6,8 @@ export const templateRegistry:TemplateDefinition[]=[
  {id:'party',slug:'party',name:'Birthday Party',description:'Big energy, bright confetti.',category:'party',isPremium:false,price:0,animationPreset:'confetti'},
  {id:'friend',slug:'best-friend',name:'Best Friend',description:'For your favourite human.',category:'friend',isPremium:false,price:0,animationPreset:'photoReveal'},
  {id:'elegant',slug:'elegant',name:'Elegant',description:'Timeless wishes.',category:'elegant',isPremium:false,price:0,animationPreset:'slide'},
- {id:'romantic',slug:'romantic',name:'Romantic',description:'A heartfelt story in motion.',category:'romantic',isPremium:true,price:49,animationPreset:'cardFlip'},
- {id:'cinematic',slug:'cinematic',name:'Cinematic',description:'A main-character birthday moment.',category:'cinematic',isPremium:true,price:49,animationPreset:'pageTurn'},
- {id:'cartoon',slug:'cartoon',name:'Storybook',description:'An original illustrated birthday scene.',category:'cartoon',isPremium:true,price:49,animationPreset:'stagger'},
+ {id:'romantic',slug:'romantic',name:'Romantic',description:'A heartfelt story in motion.',category:'romantic',isPremium:false,price:0,animationPreset:'cardFlip'},
+ {id:'cinematic',slug:'cinematic',name:'Cinematic',description:'A main-character birthday moment.',category:'cinematic',isPremium:false,price:0,animationPreset:'pageTurn'},
+ {id:'cartoon',slug:'cartoon',name:'Storybook',description:'An original illustrated birthday scene.',category:'cartoon',isPremium:false,price:0,animationPreset:'stagger'},
 ]
 export const findTemplate=(slug:string)=>templateRegistry.find(template=>template.slug===slug)

@@ -106,7 +106,7 @@ export default function AdminDashboard() {
   if (!authenticated) return <><nav><a className="brand" href="/">✦ wishwell</a></nav><main className="payment-page">
     <span className="eyebrow">PRIVATE ADMIN AREA</span>
     <h1>Good to <i>see you.</i></h1>
-    <p className="sub">Sign in to manually review bKash and Nagad transfers.</p>
+    <p className="sub">All card themes and scenes are free right now. No payment review is needed.</p>
     <form className="payment-box" onSubmit={signIn}>
       <label htmlFor="admin-email">ADMIN EMAIL</label><input id="admin-email" type="email" value={email} onChange={event=>setEmail(event.target.value)} autoComplete="username" required/>
       <label htmlFor="admin-password">ADMIN PASSWORD</label><input id="admin-password" type="password" value={password} onChange={event=>setPassword(event.target.value)} autoComplete="current-password" required/>
@@ -117,9 +117,9 @@ export default function AdminDashboard() {
 
   return <><nav><a className="brand" href="/">✦ wishwell</a><button className="upload" onClick={signOut}>Sign out</button></nav>
     <main className="admin-page">
-      <div className="admin-heading"><div><span className="eyebrow">PRIVATE ADMIN AREA</span><h1>Payment <i>requests.</i></h1><p>Check each transaction in your bKash or Nagad account before approving it.</p></div><button className="button outline" onClick={()=>loadPayments().catch(cause=>setError(cause instanceof Error?cause.message:'Could not refresh payments.'))}>Refresh</button></div>
+      <div className="admin-heading"><div><span className="eyebrow">PRIVATE ADMIN AREA</span><h1>All cards are <i>free.</i></h1><p>All nine scenes are available on every card. Payments and approvals are disabled.</p></div></div>
       {error&&<p className="form-error" role="alert">{error}</p>}
-      {!payments.length?<div className="payment-box"><p>No payment requests yet.</p></div>:<div className="admin-payments">{payments.map(payment=>{
+      {!payments.length?<div className="payment-box"><p>No payment is needed. Create and share any card for free.</p></div>:<div className="admin-payments">{payments.map(payment=>{
         const card=Array.isArray(payment.cards)?payment.cards[0]:payment.cards
         return <article className="admin-payment" key={payment.id}>
           <div className="admin-payment-heading"><div><span className="eyebrow">{payment.payment_method.toUpperCase()} · ৳{payment.amount}</span><h2>{payment.customer_name}</h2></div><span className={'payment-status '+payment.status}>{payment.status}</span></div>

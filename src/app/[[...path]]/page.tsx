@@ -10,7 +10,7 @@ const titles: Record<string, {title:string;description:string}> = {
 export async function generateMetadata({params}:{params:Promise<{path?:string[]}>}):Promise<Metadata>{
  const {path=[]}=await params; const slug=path.at(-1) || ''; const item=titles[slug];
  if(item)return {title:item.title,description:item.description,alternates:{canonical:'/birthday-cards/'+slug},openGraph:{title:item.title,description:item.description}};
- if(path[0]==='templates') return {title:'Birthday Card Templates',description:'Choose from free and premium animated birthday card designs.'};
+ if(path[0]==='templates') return {title:'Free Birthday Card Templates',description:'Choose from free animated birthday card designs.'};
  if(path[0]==='card') return {title:'A special birthday surprise',robots:{index:false,follow:false}};
  if(path[0]==='create'||path[0]==='share') return {robots:{index:false,follow:false}};
  return {};

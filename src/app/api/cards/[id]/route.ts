@@ -1,15 +1,17 @@
 import { NextResponse } from 'next/server'
+import { cardThemes } from '../../../../lib/cards/themes'
+import { defaultBirthdayMusic } from '../../../../lib/cards/music'
 import { supabaseRequest } from '../../../../lib/supabase/server'
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  if (!/^[a-f0-9]{32}$/.test(id)) {
+  if (!/^[a-z0-9]{12,32}$/.test(id)) {
     return NextResponse.json({ error: 'This birthday card could not be found.' }, { status: 404 })
   }
 
   try {
     const response = await supabaseRequest(
-      `/rest/v1/cards?public_id=eq.${id}&status=eq.published&select=public_id,template_slug,recipient_name,sender_name,message,music_url,expires_at,card_photos(image_url,sort_order)&limit=1`,
+      `/rest/v1/cards?public_id=eq.${id}&status=in.(draft,published)&select=public_id,template_slug,theme,language,card_config,recipient_name,sender_name,message,music_url,expires_at,card_photos(image_url,sort_order)&limit=1`,
     )
     const [card] = await response.json()
 
@@ -18,13 +20,21 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: 'This birthday card has expired.' }, { status: 410 })
     }
 
+    const config = card.card_config && typeof card.card_config === 'object' ? card.card_config : {}
+    const theme = cardThemes[card.theme as keyof typeof cardThemes] ? card.theme : 'pastel-cute'
+
     return NextResponse.json({
       id: card.public_id,
-      template: card.template_slug,
+      template: theme,
+      theme,
+      language: card.language === 'bn' ? 'bn' : 'en',
+      config,
+      fullAccess: true,
       recipient: card.recipient_name,
       sender: card.sender_name,
       message: card.message,
-      music: card.music_url ?? undefined,
+      music: typeof card.music_url === 'string' ? card.music_url : defaultBirthdayMusic.url,
+      musicCredit: typeof card.music_url !== 'string',
       photos: (card.card_photos ?? [])
         .sort((a: { sort_order: number }, b: { sort_order: number }) => a.sort_order - b.sort_order)
         .map((photo: { image_url: string }) => photo.image_url),

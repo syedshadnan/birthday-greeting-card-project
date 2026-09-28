@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import type React from 'react'
 import '../styles.css'
+import '../card-polish.css'
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://wishwell.cards'),

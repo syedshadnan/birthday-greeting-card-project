@@ -1,39 +1,36 @@
 import { NextResponse } from 'next/server'
+import { isSameOriginRequest } from '../../../lib/admin-auth'
+import { isCardConfig, isCardTheme, sanitizeCardText } from '../../../lib/cards/themes'
+import { checkRateLimit } from '../../../lib/rate-limit'
 import { getSupabaseConfig, supabaseRequest } from '../../../lib/supabase/server'
 
-const allowedTemplates = new Set(['romantic', 'cute', 'friend', 'elegant', 'funny', 'minimal', 'cinematic', 'party'])
-const premiumTemplates = new Set(['romantic', 'cinematic'])
-const maxPhotoSize = 5_000_000
-const maxMusicSize = 10_000_000
-const imageTypes = new Set(['image/jpeg', 'image/png', 'image/webp'])
-const musicTypes = new Set(['audio/mpeg', 'audio/wav', 'audio/x-wav', 'audio/mp4', 'audio/x-m4a'])
+const legacyTemplates = new Set(['romantic', 'cute', 'friend', 'elegant', 'funny', 'minimal', 'cinematic', 'party'])
+const maxMusicSize = 1_000_000
+type UploadedAsset = { path: string; url: string }
 
-type UploadedAsset = { file: File; path: string; url: string }
-
-function extensionFor(file: File) {
-  if (file.type === 'image/jpeg') return 'jpg'
-  if (file.type === 'image/png') return 'png'
-  if (file.type === 'image/webp') return 'webp'
-  if (file.type === 'audio/mpeg') return 'mp3'
-  if (file.type === 'audio/wav' || file.type === 'audio/x-wav') return 'wav'
-  return 'm4a'
+async function hasMp3Signature(file: File) {
+  const bytes = new Uint8Array(await file.slice(0, 4096).arrayBuffer())
+  if (bytes.length >= 3 && bytes[0] === 0x49 && bytes[1] === 0x44 && bytes[2] === 0x33) return true
+  return bytes.some((byte, index) => byte === 0xff && index + 1 < bytes.length && (bytes[index + 1] & 0xe0) === 0xe0)
 }
 
-async function uploadAsset(file: File, id: string): Promise<UploadedAsset> {
-  const { url } = getSupabaseConfig()
-  const path = `${id}/${crypto.randomUUID()}.${extensionFor(file)}`
+function safeSlug() {
+  const alphabet = '23456789abcdefghjkmnpqrstuvwxyz'
+  const random = new Uint8Array(12)
+  crypto.getRandomValues(random)
+  return Array.from(random, value => alphabet[value % alphabet.length]).join('')
+}
 
+async function uploadPhoto(file: File, id: string): Promise<UploadedAsset> {
+  if (file.type !== 'image/webp') throw new Error('Photos must be compressed to WebP before upload.')
+  const { url } = getSupabaseConfig()
+  const path = `${id}/${crypto.randomUUID()}.webp`
   await supabaseRequest(`/storage/v1/object/birthday-cards/${path}`, {
     method: 'POST',
-    headers: { 'Content-Type': file.type, 'x-upsert': 'false' },
+    headers: { 'Content-Type': 'image/webp', 'x-upsert': 'false' },
     body: file,
   })
-
-  return {
-    file,
-    path,
-    url: `${url}/storage/v1/object/public/birthday-cards/${path}`,
-  }
+  return { path, url: `${url}/storage/v1/object/public/birthday-cards/${path}` }
 }
 
 async function removeAssets(assets: UploadedAsset[]) {
@@ -48,67 +45,154 @@ async function removeAssets(assets: UploadedAsset[]) {
 
 export async function POST(request: Request) {
   const uploaded: UploadedAsset[] = []
+  let uploadedMusic: UploadedAsset | undefined
   let cardId: string | undefined
 
+  if (!isSameOriginRequest(request)) {
+    return NextResponse.json({ error: 'Card creation request was rejected.' }, { status: 403 })
+  }
+
   try {
+    const contentLength = Number(request.headers.get('content-length') ?? 0)
+    if (contentLength > 2_500_000) {
+      return NextResponse.json({ error: 'The upload is too large. Compress photos and try again.' }, { status: 413 })
+    }
+    if (!await checkRateLimit(request, 'create-card', 8, 600)) {
+      return NextResponse.json({ error: 'Too many cards from this connection. Please try again in 10 minutes.' }, { status: 429 })
+    }
+
     const form = await request.formData()
     const template = form.get('template')
+    const rawTheme = form.get('theme')
+    const theme = isCardTheme(rawTheme) ? rawTheme : null
+    const access = form.get('access')
     const recipient = form.get('recipient')
-    const message = form.get('message')
     const sender = form.get('sender')
-    const photos = form.getAll('photos')
-    const music = form.get('music')
+    const message = form.get('message')
+    const language = form.get('language')
+    const rawConfig = form.get('config')
+    const photos = form.getAll('photos').filter((file): file is File => file instanceof File && file.size > 0)
+    const rawMusic = form.get('music')
+    const musicFile = rawMusic instanceof File && rawMusic.size > 0 ? rawMusic : undefined
+    const musicRightsConfirmed = form.get('musicRightsConfirmed') === 'true'
 
     if (
-      typeof template !== 'string' || !allowedTemplates.has(template) ||
-      typeof recipient !== 'string' || recipient.trim().length < 1 || recipient.length > 32 ||
-      typeof message !== 'string' || message.length > 300 ||
-      typeof sender !== 'string' || sender.length > 60
+      typeof template !== 'string' || (!legacyTemplates.has(template) && !theme) ||
+      (theme && template !== theme) ||
+      (access !== 'free' && access !== 'premium') ||
+      typeof recipient !== 'string' || sanitizeCardText(recipient, 40).length < 1 || recipient.length > 40 ||
+      typeof sender !== 'string' || sender.length > 60 ||
+      typeof message !== 'string' || message.length > 5000 ||
+      (language !== 'en' && language !== 'bn') ||
+      typeof rawConfig !== 'string'
     ) {
-      return NextResponse.json({ error: 'Check the card details and choose a free template.' }, { status: 400 })
+      return NextResponse.json({ error: 'Check the card details and choose a valid theme and access level.' }, { status: 400 })
     }
 
-    const photoFiles = photos.filter((file): file is File => file instanceof File && file.size > 0)
-    if (photoFiles.length > 5 || photoFiles.some(file => !imageTypes.has(file.type) || file.size > maxPhotoSize)) {
-      return NextResponse.json({ error: 'Add up to 5 JPG, PNG, or WebP photos, each smaller than 5 MB.' }, { status: 400 })
-    }
-    if (music !== null && (!(music instanceof File) || music.size > maxMusicSize || !musicTypes.has(music.type))) {
-      return NextResponse.json({ error: 'Add an MP3, WAV, or M4A song smaller than 10 MB.' }, { status: 400 })
+    let config: unknown
+    try {
+      config = JSON.parse(rawConfig)
+    } catch {
+      return NextResponse.json({ error: 'The card details could not be read. Please review the form and try again.' }, { status: 400 })
     }
 
-    cardId = crypto.randomUUID().replaceAll('-', '')
-    for (const file of photoFiles) uploaded.push(await uploadAsset(file, cardId))
-    const musicAsset = music instanceof File && music.size > 0 ? await uploadAsset(music, cardId) : undefined
-    if (musicAsset) uploaded.push(musicAsset)
+    if (
+      !isCardConfig(config) ||
+      config.reasons.some(reason => sanitizeCardText(reason, 180).length < 1) ||
+      config.letter.length > 5000 ||
+      config.openingLine.length > 180 ||
+      config.finalWish.length > 500 ||
+      config.relationship.length > 80 ||
+      config.photos.length !== photos.length ||
+      config.photos.some(photo => photo.caption.length > 160) ||
+      (config.songId === 'custom') !== !!musicFile
+    ) {
+      return NextResponse.json({ error: 'Add 3–6 reasons and check the length of each card section and photo caption.' }, { status: 400 })
+    }
+    if (photos.length > 6 || photos.some(file => file.type !== 'image/webp' || file.size > 200_000)) {
+      return NextResponse.json({ error: 'Add up to 6 compressed WebP photos, each no larger than 200 KB.' }, { status: 400 })
+    }
+    if (rawMusic && !(rawMusic instanceof File)) {
+      return NextResponse.json({ error: 'Choose an MP3 audio file.' }, { status: 400 })
+    }
+    if (musicFile && (
+      musicFile.type !== 'audio/mpeg' ||
+      musicFile.size > maxMusicSize ||
+      !await hasMp3Signature(musicFile)
+    )) {
+      return NextResponse.json({ error: 'Choose an MP3 file no larger than 1 MB.' }, { status: 400 })
+    }
+    if (musicFile && !musicRightsConfirmed) {
+      return NextResponse.json({ error: 'Confirm that you own or have permission to use this music.' }, { status: 400 })
+    }
 
-    await supabaseRequest('/rest/v1/cards', {
+    cardId = safeSlug()
+    for (const photo of photos) uploaded.push(await uploadPhoto(photo, cardId))
+    if (musicFile) {
+      const { url } = getSupabaseConfig()
+      const path = `${cardId}/music.mp3`
+      await supabaseRequest(`/storage/v1/object/birthday-cards/${path}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'audio/mpeg', 'x-upsert': 'false' },
+        body: musicFile,
+      })
+      uploadedMusic = { path, url: `${url}/storage/v1/object/public/birthday-cards/${path}` }
+    }
+    const cleanConfig = {
+      relationship: sanitizeCardText(config.relationship, 80),
+      language,
+      openingLine: sanitizeCardText(config.openingLine, 180),
+      letter: sanitizeCardText(config.letter, 5000),
+      reasons: config.reasons.map(reason => sanitizeCardText(reason, 180)),
+      finalWish: sanitizeCardText(config.finalWish, 500),
+      photos: uploaded.map((asset, index) => ({
+        url: asset.url,
+        caption: sanitizeCardText(config.photos[index].caption, 160),
+      })),
+      songId: musicFile ? 'custom' : 'none',
+    }
+    const cleanMessage = sanitizeCardText(message, 5000)
+    const cleanRecipient = sanitizeCardText(recipient, 40)
+    const cleanSender = sanitizeCardText(sender, 60)
+    const now = Date.now()
+    const expiry = now + 365 * 24 * 60 * 60 * 1000
+
+    const cardResponse = await supabaseRequest('/rest/v1/cards', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+      headers: { 'Content-Type': 'application/json', Prefer: 'return=representation' },
       body: JSON.stringify({
         public_id: cardId,
-        template_slug: template,
-        recipient_name: recipient.trim(),
-        sender_name: sender.trim(),
-        message: message.trim(),
-        music_url: musicAsset?.url ?? null,
-        status: premiumTemplates.has(template) ? 'draft' : 'published',
-        expires_at: new Date(Date.now() + 30 * 864e5).toISOString(),
+        template_slug: theme ?? template,
+        theme: theme ?? template,
+        language,
+        card_config: cleanConfig,
+        paid: false,
+        recipient_name: cleanRecipient,
+        sender_name: cleanSender,
+        message: cleanMessage,
+        music_url: uploadedMusic?.url ?? null,
+        status: 'published',
+        expires_at: new Date(expiry).toISOString(),
       }),
     })
+    const [createdCard] = await cardResponse.json() as { id: string }[]
+    if (!createdCard || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(createdCard.id)) {
+      throw new Error('The database did not return the new card ID.')
+    }
 
-    if (uploaded.length > (musicAsset ? 1 : 0)) {
+    if (uploaded.length) {
       await supabaseRequest('/rest/v1/card_photos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Prefer: 'return=minimal' },
-        body: JSON.stringify(uploaded.filter(asset => asset !== musicAsset).map((asset, sort_order) => ({
-          card_id: cardId,
+        body: JSON.stringify(uploaded.map((asset, sort_order) => ({
+          card_id: createdCard.id,
           image_url: asset.url,
           sort_order,
         }))),
       })
     }
 
-    return NextResponse.json({ id: cardId, premium: premiumTemplates.has(template) }, { status: 201 })
+    return NextResponse.json({ id: cardId, premium: false }, { status: 201 })
   } catch (error) {
     console.error('Could not create birthday card.', error)
     if (cardId) {
@@ -118,10 +202,10 @@ export async function POST(request: Request) {
         console.error('Could not remove the incomplete birthday card.', cleanupError)
       }
     }
-    await removeAssets(uploaded)
+    await removeAssets([...uploaded, ...(uploadedMusic ? [uploadedMusic] : [])])
     const message = error instanceof Error && error.message.includes('not configured')
-      ? 'Card sharing needs Supabase configuration. Add the required Supabase environment variables and run the database migrations.'
+      ? 'Card creation needs the Supabase database, storage bucket, and rate-limit migration configured.'
       : 'We could not save your card. Please try again.'
-    return NextResponse.json({ error: message }, { status: message.startsWith('Card sharing') ? 503 : 500 })
+    return NextResponse.json({ error: message }, { status: message.startsWith('Card creation') ? 503 : 500 })
   }
 }

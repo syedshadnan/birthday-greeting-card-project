@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,500;0,600;1,500;1,600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Noto+Serif+Bengali:wght@400;500&family=Playfair+Display:ital,wght@0,500;0,600;1,500;1,600&display=swap');
 :root{--cream:#faf5eb;--paper:#fffdf8;--ink:#302d43;--orange:#e96e54;--line:#e8dfd0;--rose:#efb7a8;--plum:#765568;--olive:#6b784b;--sky:#91b8bd}
 body{background:var(--cream);color:var(--ink);background-image:radial-gradient(#d9c8aa38 .7px,transparent .7px);background-size:9px 9px}
 nav{position:relative;z-index:10}

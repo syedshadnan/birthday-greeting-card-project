@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { clearAdminSession, hasAdminSession, isSameOriginRequest, setAdminSession, verifyAdminCredentials } from '../../../../lib/admin-auth'
+import { checkRateLimit } from '../../../../lib/rate-limit'
 
 export async function GET(request: NextRequest) {
   try {
@@ -16,6 +17,9 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    if (!await checkRateLimit(request, 'admin-login', 8, 900)) {
+      return NextResponse.json({ error: 'Too many sign-in attempts. Please wait 15 minutes and try again.' }, { status: 429 })
+    }
     const body = await request.json()
     if (typeof body.email !== 'string' || body.email.length > 254 || typeof body.password !== 'string' || body.password.length > 128) {
       return NextResponse.json({ error: 'Enter your admin email and password.' }, { status: 400 })
