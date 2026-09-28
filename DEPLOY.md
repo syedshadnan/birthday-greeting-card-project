@@ -15,7 +15,7 @@ npm run start
 
 Card links are stored in Supabase so recipients can open them on another device. Before hosting:
 
-1. Run `supabase/migrations/001_initial_schema.sql`, `supabase/migrations/002_card_sharing.sql`, `supabase/migrations/003_manual_payments.sql`, `supabase/migrations/004_card_experience.sql`, `supabase/migrations/005_card_public_slug.sql`, and `supabase/migrations/006_all_cards_free.sql` in the Supabase SQL Editor, in order. Migration 005 ensures the public card ID column stores short share slugs as text. Migration 006 publishes existing drafts as free cards, clears their paid flag, and extends existing draft and published cards for 12 months.
+1. Run `supabase/migrations/001_initial_schema.sql` through `supabase/migrations/007_seven_day_card_expiry.sql` in the Supabase SQL Editor, in order. Migration 005 ensures the public card ID column stores short share slugs as text. Migration 006 publishes existing drafts as free cards and clears their paid flag. Migration 007 limits existing active cards to no more than seven days from when it is applied.
 2. Set `NEXT_PUBLIC_SUPABASE_URL` to the project URL.
 3. Set `SUPABASE_SERVICE_ROLE_KEY` to the project's **service-role** key as a server-only environment variable. Never expose it using a `NEXT_PUBLIC_` name.
 4. Set `NEXT_PUBLIC_SITE_URL` to the deployed site's canonical HTTPS URL.
@@ -27,7 +27,7 @@ On Vercel, import the project and add the variables in **Project Settings → En
 ## Free card builder and music
 
 - `/create` builds cards using the four bundled themes. `/card/demo` is the bilingual sample card. Photos are converted in the browser to WebP (up to six, 200 KB each); the API checks the file type and size again.
-- All themes and all nine scenes are currently free. New cards publish immediately and remain available for 12 months; migration 006 converts existing drafts and published cards to the same free access. Payment submission and admin approval are disabled.
+- All themes and all nine scenes are currently free. New cards publish immediately and expire after seven days. Migration 006 converts existing drafts and published cards to free access; migration 007 gives existing active cards up to seven more days from when it is applied, without extending cards already due sooner. Payment submission and admin approval are disabled.
 - Card creators can add up to six photos. The builder compresses photos to WebP (maximum 200 KB apiece); recipients see a keepsake album and can tap a photo to expand it.
 - Cards without an uploaded track start with “Happy Birthday to You,” a public-domain recording by Pracchia-78 hosted on Wikimedia Commons. The source and public-domain information are available from the music-info icon; playback begins on the recipient's first tap. Card creators may replace it with one MP3 file. The custom upload becomes the card's only track, so the default song is not played. Files larger than 1 MB are trimmed client-side at the last complete MP3 frame that fits, then checked against the 1 MB server limit; other formats and malformed MP3s are rejected. Creators must confirm they own their uploaded track or have permission to use it. Custom music pauses when the tab is hidden.
 - `004_card_experience.sql` adds card theme/config/payment state fields and a service-role-only rate-limit RPC/table. `005_card_public_slug.sql` ensures `cards.public_id` accepts short share slugs. The app expects the existing `cards`, `card_photos`, and `payments` tables plus the existing `birthday-cards` Storage bucket from migrations 001–003.

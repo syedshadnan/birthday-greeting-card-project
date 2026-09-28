@@ -6,13 +6,13 @@ Wishwell is a Next.js birthday-card site with an existing template editor and a 
 
 1. Run `npm ci`.
 2. Copy `.env.example` to `.env.local` and fill in the server credentials.
-3. Run Supabase migrations `001_initial_schema.sql` through `006_all_cards_free.sql` in order. Migration 006 makes existing draft and published cards free, publishes drafts, and extends their availability for 12 months.
+3. Run Supabase migrations `001_initial_schema.sql` through `007_seven_day_card_expiry.sql` in order. Migration 006 makes existing draft and published cards free and publishes drafts. Migration 007 limits existing active cards to no more than seven days from when it is applied.
 4. Run `npm run dev` locally, or `npm run lint` and `npm run build` before deploying to Vercel.
 5. Set the same environment variables in Vercel. See [DEPLOY.md](./DEPLOY.md) for the full setup, Storage bucket, and cron details.
 
 ## Free cards
 
-Every theme and all nine story scenes are currently free. New cards are published immediately and remain available for 12 months. Payment submission and admin approval are disabled. Existing cards are converted to free cards by migration `006_all_cards_free.sql`.
+Every theme and all nine story scenes are currently free. New cards are published immediately and expire after seven days. Migration `007_seven_day_card_expiry.sql` also limits existing active cards to seven days from when the migration is applied, without extending cards already due sooner. Payment submission and admin approval are disabled.
 
 ## Themes and music
 

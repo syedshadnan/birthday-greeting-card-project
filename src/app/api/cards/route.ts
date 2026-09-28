@@ -6,6 +6,7 @@ import { getSupabaseConfig, supabaseRequest } from '../../../lib/supabase/server
 
 const legacyTemplates = new Set(['romantic', 'cute', 'friend', 'elegant', 'funny', 'minimal', 'cinematic', 'party'])
 const maxMusicSize = 1_000_000
+const cardLifetimeMs = 7 * 24 * 60 * 60 * 1000
 type UploadedAsset = { path: string; url: string }
 
 async function hasMp3Signature(file: File) {
@@ -155,7 +156,7 @@ export async function POST(request: Request) {
     const cleanRecipient = sanitizeCardText(recipient, 40)
     const cleanSender = sanitizeCardText(sender, 60)
     const now = Date.now()
-    const expiry = now + 365 * 24 * 60 * 60 * 1000
+    const expiry = now + cardLifetimeMs
 
     const cardResponse = await supabaseRequest('/rest/v1/cards', {
       method: 'POST',
