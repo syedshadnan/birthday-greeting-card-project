@@ -451,6 +451,7 @@ body {
 html { scroll-behavior: smooth; }
 
 .landing-page {
+  overflow-x: clip;
   animation: wish-page-open 650ms cubic-bezier(.2,.7,.25,1) both;
 }
 
@@ -559,18 +560,22 @@ html.has-scroll-reveal [data-reveal]:not(.is-visible) {
 .hero {
   position: relative;
   isolation: isolate;
+  overflow: visible;
 }
 
 .hero::before {
   position: absolute;
   z-index: -1;
-  inset: 16px -7vw 0;
+  inset: 16px auto 0;
+  left: 50%;
+  width: 100vw;
   background:
     radial-gradient(ellipse at 13% 18%, #f6c2b45c 0 12%, transparent 32%),
     radial-gradient(ellipse at 58% 10%, #f3d98a45 0 10%, transparent 29%),
     radial-gradient(ellipse at 83% 67%, #b9d9d05c 0 14%, transparent 34%);
   content: '';
   pointer-events: none;
+  transform: translateX(-50%);
 }
 
 .hero > .eyebrow {
