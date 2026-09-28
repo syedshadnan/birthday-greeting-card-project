@@ -1,19 +1,170 @@
-# Wishwell
+# ✨ Wishwell — Interactive Digital Birthday Cards
 
-Wishwell is a Next.js birthday-card site with an existing template editor and a bilingual, nine-scene birthday story.
+[![Live Demo](https://img.shields.io/badge/🌐_Live_Demo-birthday--greeting--card--project.vercel.app-brightgreen?style=for-the-badge&logo=vercel)](https://birthday-greeting-card-project.vercel.app/)
+[![Next.js](https://img.shields.io/badge/Next.js-15+-black?style=for-the-badge&logo=next.js)](https://nextjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org/)
+[![Supabase](https://img.shields.io/badge/Supabase-Database%20%26%20Storage-3ECF8E?style=for-the-badge&logo=supabase)](https://supabase.com/)
 
-## Run and deploy
+> **A modern, thoughtful digital birthday card maker designed to create unforgettable moments.**  
+> Create, personalize, and share animated 9-scene birthday experiences complete with photos, music, interactive wishes, and bilingual support.
 
-1. Run `npm ci`.
-2. Copy `.env.example` to `.env.local` and fill in the server credentials.
-3. Run Supabase migrations `001_initial_schema.sql` through `007_seven_day_card_expiry.sql` in order. Migration 006 makes existing draft and published cards free and publishes drafts. Migration 007 limits existing active cards to no more than seven days from when it is applied.
-4. Run `npm run dev` locally, or `npm run lint` and `npm run build` before deploying to Vercel.
-5. Set the same environment variables in Vercel. See [DEPLOY.md](./DEPLOY.md) for the full setup, Storage bucket, and cron details.
+---
 
-## Free cards
+## 🌟 Live Application
 
-Every theme and all nine story scenes are currently free. New cards are published immediately and expire after seven days. Migration `007_seven_day_card_expiry.sql` also limits existing active cards to seven days from when the migration is applied, without extending cards already due sooner. Payment submission and admin approval are disabled.
+Experience the live app here:  
+👉 **[https://birthday-greeting-card-project.vercel.app/](https://birthday-greeting-card-project.vercel.app/)**
 
-## Themes and music
+---
 
-Add themes in `src/lib/cards/themes.ts`, then add their visual styles in `src/card-polish.css`. The birthday story includes a photo album with tap-to-expand memories, a fold-open keepsake note, and a personalized wish picker. Creators can add up to six photos in the card builder; images are compressed to WebP before upload. Cards without an uploaded track play “Happy Birthday to You,” a public-domain recording by Pracchia-78 hosted on Wikimedia Commons. Creators can replace it with their own MP3; a custom upload is stored as the card's only track, so the default is not played. Files over 1 MB are trimmed to the last complete MP3 frame within the limit, and the creator must confirm they have permission to use it. See [DEPLOY.md](./DEPLOY.md) for details.
+## ✨ Features
+
+- 🎨 **Artfully Crafted Themes**: Choose from charming themes like *Pastel Cute*, *Rose Romantic*, *Royal Gold*, and *Midnight Galaxy*.
+- 📖 **9-Scene Interactive Story Experience**:
+  - 🕯️ Interactive candle-lighting & wish-making
+  - 💌 Fold-open keepsake letter with personalized notes
+  - 📸 Memory album with tap-to-expand photo view
+  - 🎈 Floating wishes, interactive token reveals & celebration fireworks
+- 🎵 **Music & Audio Controls**:
+  - Default classic "Happy Birthday to You" public-domain audio
+  - Custom MP3 upload option with client-side frame validation and compression
+- 📸 **Smart Photo Uploads**:
+  - Upload up to 6 keepsake memories
+  - Browser-side instant WebP compression (max 200 KB per photo) for ultra-fast loading
+- 🌐 **Bilingual Experience**:
+  - Full native support for both **English** and **বাংলা (Bengali)** wishes and greetings
+- ⏳ **Automated 7-Day Card Expiry**:
+  - Ephemeral cards that stay active for 7 days
+  - Scheduled daily cron cleanup for expired cards, photos, and audio
+- 📱 **Mobile-First & Accessible**:
+  - Designed for smooth touch experiences on smartphones and desktop browsers
+  - Reduced-motion support and keyboard navigation
+
+---
+
+## 🛠️ Tech Stack
+
+| Layer | Technology |
+|---|---|
+| **Framework** | [Next.js](https://nextjs.org/) (App Router & Route Handlers) |
+| **Language** | [TypeScript](https://www.typescriptlang.org/) |
+| **Styling** | Custom CSS3 (Fluid animations, theme variables, glassmorphism) |
+| **Database** | [Supabase](https://supabase.com/) (PostgreSQL with Row Level Security) |
+| **Storage** | Supabase Storage (`birthday-cards` bucket for WebP photos & audio) |
+| **Deployment** | [Vercel](https://vercel.com/) with Cron Jobs support |
+
+---
+
+## 🚀 Getting Started
+
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/syedshadnan/birthday-greeting-card-project.git
+cd birthday-greeting-card-project
+```
+
+### 2. Install dependencies
+
+```bash
+npm ci
+```
+
+### 3. Setup environment variables
+
+Create a `.env.local` file in the root directory by copying `.env.example`:
+
+```bash
+cp .env.example .env.local
+```
+
+Configure the following variables:
+
+```env
+NEXT_PUBLIC_SITE_URL=http://localhost:3000
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
+ADMIN_EMAILS=your-email@example.com
+ADMIN_PASSWORD=your_strong_admin_password
+ADMIN_SESSION_SECRET=your_random_32_character_secret
+CRON_SECRET=your_random_cron_secret
+```
+
+### 4. Database Setup (Supabase)
+
+Run the SQL migration scripts located in `supabase/migrations/` in sequential order inside the **Supabase SQL Editor**:
+1. `001_initial_schema.sql`
+2. `002_fix_payments_rls.sql`
+3. `003_storage_bucket.sql`
+4. `004_card_experience.sql`
+5. `005_card_public_slug.sql`
+6. `006_all_cards_free.sql`
+7. `007_seven_day_card_expiry.sql`
+
+### 5. Run development server
+
+```bash
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+---
+
+## 📦 Build & Production
+
+To verify types and create an optimized production build:
+
+```bash
+# Typecheck
+npm run lint
+
+# Build production bundle
+npm run build
+
+# Start production server
+npm run start
+```
+
+For detailed deployment steps on Vercel and cron job setup, check out [DEPLOY.md](./DEPLOY.md).
+
+---
+
+## 📁 Project Structure
+
+```text
+├── src/
+│   ├── app/
+│   │   ├── [[...path]]/     # Catch-all client routing
+│   │   ├── api/cards/       # Card creation & retrieval API endpoints
+│   │   ├── api/cron/        # Daily cleanup cron handler
+│   │   ├── card/[slug]/     # Public card viewing route with dynamic OpenGraph
+│   │   └── layout.tsx       # Root layout & global metadata
+│   ├── components/
+│   │   ├── card-builder.tsx # Multi-step card creator wizard
+│   │   ├── card-experience.tsx # 9-scene interactive card presentation
+│   │   └── fireworks.tsx    # Canvas fireworks animation
+│   ├── lib/
+│   │   ├── cards/           # Themes, audio helpers & validation
+│   │   ├── supabase/        # Supabase server client
+│   │   └── rate-limit.ts    # Service-role rate limiter
+│   ├── card-polish.css      # Card animation & interactive styles
+│   └── styles.css           # Global typography & layout styles
+├── supabase/migrations/     # Database schemas & functions
+├── DEPLOY.md                # Deployment instructions
+└── vercel.json              # Vercel configuration & Cron schedule
+```
+
+---
+
+## 👤 Author
+
+**Syed Shadnan**
+- GitHub: [@syedshadnan](https://github.com/syedshadnan)
+- LinkedIn: [@shadnancodes](https://www.linkedin.com/in/shadnancodes/)
+
+---
+
+## 📄 License
+
+This project is open-source and available under the [MIT License](LICENSE).
