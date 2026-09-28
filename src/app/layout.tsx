@@ -34,6 +34,9 @@ export const metadata: Metadata = {
     title: 'Create Beautiful Birthday Cards Online — Free | Wishwell',
     description: 'Personal birthday cards with photos, music, and beautiful animations.',
   },
+  verification: {
+    google: '7Jw7uZ0XkzPcmhIVnydOHgIf5JbvhR9li3dXpWHKTqs',
+  },
 }
 
 const jsonLd = {
@@ -55,6 +58,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <head>
+        <meta name="google-site-verification" content="7Jw7uZ0XkzPcmhIVnydOHgIf5JbvhR9li3dXpWHKTqs" />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
