@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 import React, { useEffect, useRef, useState } from 'react'
 import './styles.css'
 import CardBuilder from './components/card-builder'
@@ -16,16 +16,216 @@ const templates:{id:TemplateId;name:string;tag:string;emoji:string;className:str
 const sample:CardData={recipient:'Maya',message:'Here’s to a year full of bright little moments, brave choices, and reasons to laugh until it hurts.',sender:'With all my love, Rhea',photos:['https://images.unsplash.com/photo-1524250502761-1ac6f2e30d43?auto=format&fit=crop&w=700&q=85','https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91?auto=format&fit=crop&w=700&q=85'],template:'romantic'}
 const getTemplate=(id:TemplateId)=>templates.find(x=>x.id===id)!
 const themeForTemplate=(id:string):CardTheme=>id==='romantic'?'rose-romantic':id==='cinematic'?'cinematic':id==='elegant'?'elegant':id==='friend'?'friend':id==='funny'?'funny':id==='minimal'?'minimal':id==='party'?'party':'cute'
-function Brand(){return <a className="brand" href="/" onClick={e=>{e.preventDefault();navigate('/')}}><span>✦</span> wishwell</a>}
+function Brand(){return <a className="logo" href="/" onClick={e=>{e.preventDefault();navigate('/')}}><i>✦</i> wishwell</a>}
 function navigate(path:string){history.pushState({},'',path);window.dispatchEvent(new PopStateEvent('popstate'))}
 function Button({children,onClick,variant='dark',type='button',disabled=false}:{children:React.ReactNode;onClick?:()=>void;variant?:string;type?:'button'|'submit';disabled?:boolean}){return <button type={type} className={'button '+variant} onClick={onClick} disabled={disabled}>{children}</button>}
-function Nav(){return <nav><Brand/><div className="navlinks"><a href="/#how">How it works</a><a href="/templates" onClick={e=>{e.preventDefault();navigate('/templates')}}>Templates</a></div><Button onClick={()=>navigate('/templates')}>Create a card <b>→</b></Button></nav>}
+function Nav(){return <header className="site-header"><nav className="site-nav"><Brand/><div className="links"><a href="/#how" onClick={e=>{e.preventDefault();document.getElementById('how')?.scrollIntoView({behavior:'smooth'})}}>How it works</a><a href="/templates" onClick={e=>{e.preventDefault();navigate('/templates')}}>Templates</a><a href="/templates" className="btn-sm" onClick={e=>{e.preventDefault();navigate('/templates')}}>Create a card →</a></div></nav></header>}
 function MiniCard({t}: {t:typeof templates[number]}){return <div className={'mini-card '+t.className}><i>{t.emoji}</i><small>happy birthday</small><strong>for you</strong><em>made with love</em></div>}
 function TinyJoy(){const [message,setMessage]=useState('');const joys=['You make someone’s world brighter just by being in it. ✨','A little kindness has a way of coming back around. 🌼','Somewhere, someone is smiling because of you. 💛','Today is a good day to make a small happy memory. 🎈'];const shareJoy=()=>{let next=Math.floor(Math.random()*joys.length);if(joys.length>1&&joys[next]===message)next=(next+1)%joys.length;setMessage(joys[next])};return <div className="tiny-joy"><span>Need a tiny smile?</span><button type="button" onClick={shareJoy}>Pick a little joy <b aria-hidden="true">✿</b></button><p aria-live="polite">{message}</p></div>}
-function Landing(){return <><Nav/><main className="landing-page"><section className="hero"><BirthdayOrbit/><div className="eyebrow">A LITTLE MAGIC, MADE PERSONAL</div><h1>Make their birthday<br/><i>unforgettable.</i></h1><p>Create a beautiful, personal birthday card with photos, music and a message they’ll want to keep.</p><div className="hero-actions"><Button onClick={()=>navigate('/templates')}>Create a birthday card <b>→</b></Button><a href="#templates" className="text-link">Explore templates <b>↓</b></a></div><div className="hero-note"><span>✦</span> Free forever. No account needed.</div><TinyJoy/><div className="hero-card-wrap"><div className="sun"></div><div className="scribble one">made just<br/>for them ↘</div><div className="floating-star">✦</div><CardPreview data={sample} hero/></div></section>
-<section className="template-section" id="templates" data-reveal><div className="section-head"><div><span className="eyebrow">CHOOSE A FEELING</span><h2>There’s a card for<br/><i>every kind of love.</i></h2></div><Button variant="outline" onClick={()=>navigate('/templates')}>See all templates <b>→</b></Button></div><div className="template-grid">{templates.slice(0,4).map(t=><button className="template-tile" data-reveal key={t.id} onClick={()=>navigate('/create/'+t.id)}><MiniCard t={t}/><span><strong>{t.name}</strong><small>{t.tag}</small></span></button>)}</div></section>
-<section className="how" id="how" data-reveal><span className="eyebrow">EASY AS 1, 2, 3</span><h2>A little love goes<br/>a <i>long</i> way.</h2><div className="steps">{['Pick a feeling','Make it personal','Send some joy'].map((title,index)=><article data-reveal key={title}><b>0{index+1}</b><span>{['✦','♡','↗'][index]}</span><h3>{title}</h3><p>{['Choose a design that sounds like you two.','Add your words, favorite photos, and a song.','Share one special link. No app required.'][index]}</p></article>)}</div></section>
-<section className="closing" data-reveal><p>THE BEST GIFTS ARE THE ONES THAT FEEL LIKE YOU.</p><h2>Ready to make<br/>someone <i>smile?</i></h2><Button onClick={()=>navigate('/templates')}>Start creating <b>→</b></Button></section></main><footer className="site-footer"><Brand/><span className="footer-note">Made for sweet moments.</span><nav className="footer-socials" aria-label="Creator links"><a href="https://www.linkedin.com/in/shadnancodes/" target="_blank" rel="noreferrer">LinkedIn <span aria-hidden="true">↗</span></a><a href="https://github.com/syedshadnan" target="_blank" rel="noreferrer">GitHub <span aria-hidden="true">↗</span></a></nav><span className="footer-copyright">© Wishwell</span></footer></>}
+function HeroSection(){
+  const stageRef = useRef<HTMLDivElement>(null)
+  const tiltRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const stage = stageRef.current
+    const tilt = tiltRef.current
+    if (!stage || !tilt) return
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const r = stage.getBoundingClientRect()
+      const x = (e.clientX - r.left) / r.width - 0.5
+      const y = (e.clientY - r.top) / r.height - 0.5
+      tilt.style.transform = `rotateY(${x * 18}deg) rotateX(${-y * 18}deg)`
+    }
+
+    const handleMouseLeave = () => {
+      tilt.style.transform = ''
+    }
+
+    stage.addEventListener('mousemove', handleMouseMove)
+    stage.addEventListener('mouseleave', handleMouseLeave)
+    return () => {
+      stage.removeEventListener('mousemove', handleMouseMove)
+      stage.removeEventListener('mouseleave', handleMouseLeave)
+    }
+  }, [])
+
+  const confettiItems = React.useMemo(() => {
+    const cols = ['#e8a04a', '#d9604a', '#f3cf7a', '#c98a5a', '#f0a6a0']
+    return Array.from({ length: 22 }, (_, i) => ({
+      left: `${Math.random() * 100}%`,
+      background: cols[i % cols.length],
+      animationDuration: `${7 + Math.random() * 8}s`,
+      animationDelay: `${-Math.random() * 12}s`,
+      borderRadius: Math.random() > 0.5 ? '50%' : '2px',
+      transform: `scale(${0.6 + Math.random() * 0.8})`,
+    }))
+  }, [])
+
+  return (
+    <section className="hero">
+      <div className="bg">
+        <div className="blob b1"></div>
+        <div className="blob b2"></div>
+        <div className="blob b3"></div>
+        <div className="blob b4"></div>
+      </div>
+
+      <div className="copy">
+        <span className="badge reveal" style={{ animationDelay: '.1s' }}>
+          A little magic, made personal
+        </span>
+
+        <h1>
+          <span className="w"><span style={{ animationDelay: '.25s' }}>Make</span></span>{' '}
+          <span className="w"><span style={{ animationDelay: '.33s' }}>their</span></span>{' '}
+          <span className="w"><span style={{ animationDelay: '.41s' }}>birthday</span></span>
+          <em className="reveal" style={{ animationDelay: '.7s' }}>unforgettable.</em>
+        </h1>
+
+        <p className="sub reveal" style={{ animationDelay: '.9s' }}>
+          Create a beautiful, personal birthday card with photos, music and a message they’ll want to keep.
+        </p>
+
+        <div className="cta reveal" style={{ animationDelay: '1.05s' }}>
+          <button className="btn" onClick={() => navigate('/templates')}>
+            Create a birthday card <span className="arr">→</span>
+          </button>
+          <button
+            className="ghost"
+            onClick={() => {
+              const el = document.getElementById('templates')
+              if (el) el.scrollIntoView({ behavior: 'smooth' })
+              else navigate('/templates')
+            }}
+          >
+            Explore templates <span>↓</span>
+          </button>
+        </div>
+
+        <div className="trust reveal" style={{ animationDelay: '1.2s' }}>
+          <div className="avatars">
+            <i style={{ background: '#f2b8a2' }}></i>
+            <i style={{ background: '#e9a0a8' }}></i>
+            <i style={{ background: '#f6d48f' }}></i>
+            <i style={{ background: '#b9d3b0' }}></i>
+          </div>
+          <span><b>Free forever.</b> No account needed.</span>
+        </div>
+      </div>
+
+      <div className="stage reveal" style={{ animationDelay: '.4s' }} ref={stageRef}>
+        <div className="halo"></div>
+        <div className="ring"></div>
+        <div className="confetti">
+          {confettiItems.map((style, idx) => (
+            <i key={idx} style={style} />
+          ))}
+        </div>
+        <div className="orb"></div>
+
+        <div className="tilt" ref={tiltRef}>
+          <div className="card">
+            <div className="paper">
+              <div className="shine"></div>
+              <div className="polaroid p1"><div></div></div>
+              <div className="polaroid p2"><div></div></div>
+              <div className="heart">♥</div>
+              <div className="txt">
+                <small>HAPPY BIRTHDAY</small>
+                <h3>Maya</h3>
+                <p>Here’s to a year full of bright little moments, brave choices, and reasons to laugh until it hurts.</p>
+                <div className="sig">With all my love, Rhea</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="float-note n1">🎵 Their favourite song added</div>
+        <div className="float-note n2">✨ 12 photos · 1 message</div>
+      </div>
+    </section>
+  )
+}
+function TemplateSectionCanvas() {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    let animId: number
+    const colors = ['#f7b49f', '#f9d288', '#f5a995', '#e2c1b4', '#fbe7df', '#fce7cb']
+    const particles: { x: number; y: number; r: number; dx: number; dy: number; color: string; opacity: number }[] = []
+    const resize = () => { canvas.width = canvas.offsetWidth; canvas.height = canvas.offsetHeight }
+    resize()
+    window.addEventListener('resize', resize)
+    for (let i = 0; i < 55; i++) {
+      particles.push({ x: Math.random() * canvas.width, y: Math.random() * canvas.height, r: 2 + Math.random() * 3.5, dx: (Math.random() - 0.5) * 0.35, dy: (Math.random() - 0.5) * 0.35, color: colors[Math.floor(Math.random() * colors.length)], opacity: 0.3 + Math.random() * 0.5 })
+    }
+    const draw = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
+      for (const p of particles) {
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2)
+        ctx.fillStyle = p.color; ctx.globalAlpha = p.opacity; ctx.fill()
+        p.x += p.dx; p.y += p.dy
+        if (p.x < -10) p.x = canvas.width + 10; if (p.x > canvas.width + 10) p.x = -10
+        if (p.y < -10) p.y = canvas.height + 10; if (p.y > canvas.height + 10) p.y = -10
+      }
+      ctx.globalAlpha = 1
+      for (let i = 0; i < particles.length; i++) for (let j = i + 1; j < particles.length; j++) {
+        const a = particles[i], b = particles[j], dist = Math.hypot(a.x - b.x, a.y - b.y)
+        if (dist < 90) { ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.strokeStyle = '#f7b49f'; ctx.globalAlpha = 0.07 * (1 - dist / 90); ctx.lineWidth = 1; ctx.stroke() }
+      }
+      ctx.globalAlpha = 1; animId = requestAnimationFrame(draw)
+    }
+    draw()
+    return () => { cancelAnimationFrame(animId); window.removeEventListener('resize', resize) }
+  }, [])
+  return <canvas ref={canvasRef} className="ts-canvas" aria-hidden="true" />
+}
+const FEATURED_TEMPLATES = templates.slice(0, 6)
+function FeaturedTemplateSection() {
+  const [active, setActive] = useState(0)
+  const t = FEATURED_TEMPLATES[active]
+  return (
+    <section className="template-section ts-premium" id="templates" data-reveal>
+      <TemplateSectionCanvas />
+      <div className="ts-inner">
+        <div className="section-head ts-head">
+          <div><span className="eyebrow">CHOOSE A FEELING</span><h2>There&apos;s a card for<br /><i>every kind of love.</i></h2></div>
+          <Button variant="outline" onClick={() => navigate('/templates')}>See all templates <b>&rarr;</b></Button>
+        </div>
+        <div className="ts-showcase">
+          <div className="ts-card-wrap">
+            <div className={`ts-card-preview ${t.className}`} onClick={() => navigate('/create/' + t.id)}>
+              <div className="ts-card-decor">{t.emoji}</div>
+              <div className="ts-card-decor ts-card-decor2">&#10022;</div>
+              <div className="ts-card-body"><span>happy birthday</span><strong>for you</strong><em>made with love</em></div>
+              <div className="ts-card-badge"><span>{t.name}</span><small>{t.tag}</small></div>
+            </div>
+            <button className="ts-create-btn" onClick={() => navigate('/create/' + t.id)}>Create this card <span className="arr">&rarr;</span></button>
+          </div>
+          <div className="ts-pills">
+            <p className="ts-pills-label">Pick a style</p>
+            <div className="ts-pill-grid">
+              {FEATURED_TEMPLATES.map((tmpl, idx) => (
+                <button key={tmpl.id} className={`ts-pill ${tmpl.className} ${idx === active ? 'ts-pill--active' : ''}`} onClick={() => setActive(idx)} aria-pressed={idx === active}>
+                  <span className="ts-pill-emoji">{tmpl.emoji}</span>
+                  <span className="ts-pill-name">{tmpl.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+function Landing(){return <><Nav/><main className="landing-page"><HeroSection/>
+<FeaturedTemplateSection/>
+<section className="how" id="how" data-reveal><span className="eyebrow">EASY AS 1, 2, 3</span><h2>A little love goes<br/>a <i>long</i> way.</h2><div className="steps">{['Pick a feeling','Make it personal','Send some joy'].map((title,index)=><article data-reveal key={title}><b>0{index+1}</b><span>{['\u2726','\u2661','\u2197'][index]}</span><h3>{title}</h3><p>{['Choose a design that sounds like you two.','Add your words, favorite photos, and a song.','Share one special link. No app required.'][index]}</p></article>)}</div></section>
+<section className="closing" data-reveal><p>THE BEST GIFTS ARE THE ONES THAT FEEL LIKE YOU.</p><h2>Ready to make<br/>someone <i>smile?</i></h2><Button onClick={()=>navigate('/templates')}>Start creating <b>&rarr;</b></Button></section></main><footer className="site-footer"><Brand/><span className="footer-note">Made for sweet moments.</span><nav className="footer-socials" aria-label="Creator links"><a href="https://www.linkedin.com/in/shadnancodes/" target="_blank" rel="noreferrer">LinkedIn <span aria-hidden="true">&nearr;</span></a><a href="https://github.com/syedshadnan" target="_blank" rel="noreferrer">GitHub <span aria-hidden="true">&nearr;</span></a></nav><span className="footer-copyright">&copy; Wishwell</span></footer></> }
 function CardPreview({data,hero=false,open=true}:{data:CardData;hero?:boolean;open?:boolean}){const t=getTemplate(data.template);return <div className={'card-preview '+t.className+(hero?' hero-preview':'')+(open?'':' closed')}><div className="card-decor d1">{t.emoji}</div><div className="card-decor d2">✦</div>{data.photos[0]&&<img className="card-photo main-photo" src={data.photos[0]} alt="Birthday memory"/>}{data.photos[1]&&<img className="card-photo second-photo" src={data.photos[1]} alt="Birthday memory"/>}<div className="card-content"><span>happy birthday</span><h3>{data.recipient||'Your favorite human'}</h3><p>{data.message||'A little note to make your day brighter.'}</p><small>{data.sender||'With love'}</small></div></div>}
 function Templates(){return <><Nav/><main className="gallery"><div className="gallery-title" data-reveal><span className="eyebrow">PICK YOUR MOOD</span><h1>Start with a<br/><i>feeling.</i></h1><p>Every design has its own little personality. Choose the one that feels most like them.</p></div><div className="all-templates">{templates.map(t=><button className="template-tile big" data-reveal key={t.id} onClick={()=>navigate('/create?theme='+themeForTemplate(t.id))}><MiniCard t={t}/><span><strong>{t.name}</strong><small>{t.tag}</small><b>Make this yours →</b></span></button>)}</div><section className="story-template-feature" data-reveal><div className="story-template-art" aria-hidden="true"><span>✦</span><div>🎁</div><i>happy birthday</i><strong>for you</strong><em>made with love</em></div><div className="story-template-copy"><span className="eyebrow">A CARD WITH A LITTLE SURPRISE</span><h2>One little link.<br/><i>Nine lovely scenes.</i></h2><p>Make this bilingual birthday story your own with a name, a personal letter, up to six photos, and optional music. Unfold a note, pick a birthday wish, and share the whole story for free.</p><div className="story-template-actions"><Button variant="story-card-create" onClick={()=>navigate('/create?theme=rose-romantic')}>Create this card <b>→</b></Button><Button variant="story-card-demo" onClick={()=>navigate('/card/demo')}>Preview the demo <b>↗</b></Button></div></div></section></main></>}
 function Editor({template}:{template:TemplateId}){
