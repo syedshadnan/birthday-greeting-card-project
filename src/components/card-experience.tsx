@@ -24,6 +24,7 @@ const demoConfig: CardConfig = {
   openingLine: 'তোমার হাসিতে দিনটা একটু বেশি সুন্দর।',
   letter: 'প্রিয় মায়া, তোমার সঙ্গে কাটানো ছোট ছোট মুহূর্তগুলোই সবচেয়ে বড় উপহার। নতুন বছরটা হোক আনন্দ, সাহস আর মজার গল্পে ভরা।',
   reasons: ['তুমি মন দিয়ে শোনো', 'তোমার হাসি contagious', 'তুমি সবসময় পাশে থাকো'],
+  keepsakeNote: 'যেদিন একটু ভালোবাসা দরকার, মনে রেখো—তুমি খুব আপন।',
   finalWish: 'সামনের বছরটা তোমার সব সুন্দর স্বপ্নের মতো হোক। Happy birthday — with all my love!',
   photos: [],
   songId: 'none',
@@ -42,6 +43,7 @@ function templateConfig(): CardConfig {
     openingLine: 'A little birthday surprise, made just for you.',
     letter: 'Here’s to all the lovely moments still to come.',
     reasons: ['You make ordinary days brighter.', 'You always know how to make me laugh.', 'You make people feel at home.'],
+    keepsakeNote: 'Keep this little reminder close: you are loved, always.',
     finalWish: 'May this year bring you more joy than you can imagine.',
     photos: [],
     songId: 'none',
@@ -193,6 +195,26 @@ export default function CardExperience({ slug }: { slug: string }) {
       setMusicPlaying(false)
     }
   }
+  const shareCard = async () => {
+    const shareData = { title: `A birthday card for ${card.recipient}`, url: window.location.href }
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData)
+        return
+      } catch (cause) {
+        // Cancelling the native dialog is intentional, so do not replace it
+        // with an unexpected clipboard action.
+        if (cause instanceof DOMException && cause.name === 'AbortError') return
+      }
+    }
+
+    try {
+      await navigator.clipboard.writeText(shareData.url)
+      setMusicMessage('Card link copied. You can share it anywhere.')
+    } catch {
+      setMusicMessage('Copying is unavailable in this browser. Copy the address from the address bar.')
+    }
+  }
   const nextLabel = card.language === 'bn' ? 'পরের পাতা →' : 'Next page →'
   const gateText = card.language === 'bn' ? 'তোমার জন্য একটা ছোট্ট চমক' : 'A little birthday surprise for you'
 
@@ -211,7 +233,7 @@ export default function CardExperience({ slug }: { slug: string }) {
         {card.musicUrl
           ? <button className="story-music-toggle" type="button" onClick={toggleMusic} aria-label={musicPlaying?'Pause music':'Play music'}>{musicPlaying?'♫ Music on':card.musicCredit?'♫ Birthday song':'♫ Your music'}</button>
           : <span className="story-music-off">♫ No music</span>}
-        <button className="story-icon-button" type="button" aria-label="Share this card" onClick={()=>{void navigator.share?.({title:`A birthday card for ${card.recipient}`,url:window.location.href}).catch(()=>{})}}>↗</button>
+        <button className="story-icon-button" type="button" aria-label="Share this card" onClick={()=>void shareCard()}>↗</button>
       </div>
     </header>
     {card.musicCredit&&<details className="story-music-credit"><summary aria-label="Music credits" title="Music credits">ⓘ</summary><div><span>{defaultBirthdayMusic.title} by {defaultBirthdayMusic.artist}</span><a href={defaultBirthdayMusic.source} target="_blank" rel="noreferrer">Source</a><a href={defaultBirthdayMusic.licenseUrl} target="_blank" rel="noreferrer">{defaultBirthdayMusic.license}</a></div></details>}
@@ -222,7 +244,7 @@ export default function CardExperience({ slug }: { slug: string }) {
       {scene===3&&<article className="story-letter"><span className="story-kicker">{labels[3]}</span><div className="letter-paper"><small>dear {card.recipient},</small><p>{config?.letter||card.message}</p><span>With love, {card.sender}</span></div></article>}
       {scene===4&&<div className="story-memories"><span className="story-kicker">{labels[4]}</span><h2>{card.language==='bn'?<>ছোট ছোট মুহূর্ত,<br/><i>কাছে থাকুক।</i></>:<>Little moments,<br/><i>kept close.</i></>}</h2>{photoItems.length?<><p className="memory-intro">{card.language==='bn'?'ছবিতে ধরা আমাদের প্রিয় সময়গুলো। যেকোনো ছবিতে ট্যাপ করো।':'A few favorite moments, kept right here. Tap a photo to take a closer look.'}</p><div className="memory-stack">{photoItems.map((photo,index)=><figure key={`${photo.url}-${index}`} style={{'--photo-index':index} as React.CSSProperties}><button type="button" className="memory-photo" onClick={()=>setSelectedPhoto(photo)} aria-label={`Open photo ${index+1}: ${photo.caption||'Birthday memory'}`}><img src={photo.url} alt={photo.caption||`Birthday memory ${index+1}`}/><span aria-hidden="true">↗</span></button><figcaption>{photo.caption||'A moment worth keeping'}</figcaption></figure>)}</div></>:<div className="memory-empty"><div className="memory-empty-art" aria-hidden="true"><span>▧</span><span>✦</span><span>▧</span></div><p>{card.language==='bn'?'ছবিগুলো এখানে ছোট্ট অ্যালবাম হয়ে থাকত।':'Your favorite photos would make this little album even more special.'}</p><small>{card.language==='bn'?'কার্ড বানানোর সময় সর্বোচ্চ ৬টি ছবি যোগ করা যাবে':'Add up to 6 photos while creating a card.'}</small></div>}</div>}
       {scene===5&&<div className="story-reasons"><span className="story-kicker">{labels[5]}</span><h2>Because you’re<br/><i>you.</i></h2><div className="reason-list">{(config?.reasons.length?config.reasons:templateConfig().reasons).map((reason,index)=><article key={`${index}-${reason}`}><span>0{index+1}</span><p>{reason}</p></article>)}</div></div>}
-      {scene===6&&<div className={`story-keepsake ${noteOpened?'is-open':''}`}><span className="story-kicker">{labels[6]}</span><h2>{card.language==='bn'?<>যেদিন একটু<br/><i>ভালোবাসা দরকার।</i></>:<>For a day when<br/><i>you need a little love.</i></>}</h2><div className="keepsake-envelope" aria-live="polite"><span className="keepsake-star">✦</span><span className="keepsake-label">{card.language==='bn'?'তোমার জন্য, সবসময়':'A little note, just for you'}</span><div className="keepsake-letter">{config?.finalWish||'Wishing you more good things than you can count.'}</div></div><button className="story-primary" type="button" onClick={()=>setNoteOpened(opened=>!opened)}>{noteOpened?(card.language==='bn'?'চিঠিটা আবার ভাঁজ করো':'Fold the note again'):(card.language==='bn'?'চিঠিটা খোলো ✉':'Open your note ✉')}</button></div>}
+      {scene===6&&<div className={`story-keepsake ${noteOpened?'is-open':''}`}><span className="story-kicker">{labels[6]}</span><h2>{card.language==='bn'?<>যেদিন একটু<br/><i>ভালোবাসা দরকার।</i></>:<>For a day when<br/><i>you need a little love.</i></>}</h2><div className="keepsake-envelope" aria-live="polite"><span className="keepsake-star">✦</span><span className="keepsake-label">{card.language==='bn'?'তোমার জন্য, সবসময়':'A little note, just for you'}</span><div className="keepsake-letter">{config?.keepsakeNote||'Keep this little reminder close: you are loved, always.'}</div></div><button className="story-primary" type="button" onClick={()=>setNoteOpened(opened=>!opened)}>{noteOpened?(card.language==='bn'?'চিঠিটা আবার ভাঁজ করো':'Fold the note again'):(card.language==='bn'?'চিঠিটা খোলো ✉':'Open your note ✉')}</button></div>}
       {scene===7&&<div className="story-wish-pick"><span className="story-kicker">{labels[7]}</span><h2>{card.language==='bn'?<>শুভেচ্ছার বয়াম,<br/><i>শুধু তোমার জন্য।</i></>:<>A little jar of<br/><i>good things.</i></>}</h2><div className={`wish-token ${pickedWish?'has-wish':''}`} key={pickedWish||'empty-wish'} aria-live="polite">{pickedWish?<><span>✦</span><p>{pickedWish}</p></>:<><span>✧</span><p>{card.language==='bn'?'একটা ছোট্ট শুভেচ্ছা বেছে নাও':'Pick a little wish to carry with you'}</p></>}</div><button className="story-primary" type="button" onClick={()=>{const wishes=config?.reasons.filter(Boolean)??[];const options=wishes.length?wishes:[card.language==='bn'?'অনেক আনন্দের দিন আসুক':'May the year bring you more laughter.'];const next=options.length>1&&pickedWish?options.filter(wish=>wish!==pickedWish):options;setPickedWish(next[Math.floor(Math.random()*next.length)]);setCelebrationCount(count=>count+1)}}>{pickedWish?(card.language==='bn'?'আরেকটা শুভেচ্ছা তোলো ✨':'Pick another wish ✨'):(card.language==='bn'?'একটা শুভেচ্ছা তোলো ✨':'Pick a wish ✨')}</button></div>}
       {scene===8&&<div className="story-finale"><Fireworks/><div className="finale-sparks" aria-hidden="true">✦　✧　✦</div><span className="story-kicker">{labels[8]}</span><h2>{card.language==='bn'?'সামনের বছরটা':'May your next year'}<br/><i>{card.language==='bn'?'হোক দারুণ':'be wonderful.'}</i></h2><p>{config?.finalWish||'Wishing you more good things than you can count.'}</p><strong>— {card.sender}</strong><button className="story-primary" onClick={replay}>↻ {card.language==='bn'?'আবার দেখো':'Replay your story'}</button></div>}
     </section>

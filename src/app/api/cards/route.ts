@@ -102,10 +102,11 @@ export async function POST(request: Request) {
       config.reasons.some(reason => sanitizeCardText(reason, 180).length < 1) ||
       config.letter.length > 5000 ||
       config.openingLine.length > 180 ||
+      config.keepsakeNote.length > 300 ||
       config.finalWish.length > 500 ||
       config.relationship.length > 80 ||
       config.photos.length !== photos.length ||
-      config.photos.some(photo => photo.caption.length > 160) ||
+      config.photos.some(photo => photo.caption.length > 70) ||
       (config.songId === 'custom') !== !!musicFile
     ) {
       return NextResponse.json({ error: 'Add 3–6 reasons and check the length of each card section and photo caption.' }, { status: 400 })
@@ -145,10 +146,11 @@ export async function POST(request: Request) {
       openingLine: sanitizeCardText(config.openingLine, 180),
       letter: sanitizeCardText(config.letter, 5000),
       reasons: config.reasons.map(reason => sanitizeCardText(reason, 180)),
+      keepsakeNote: sanitizeCardText(config.keepsakeNote, 300),
       finalWish: sanitizeCardText(config.finalWish, 500),
       photos: uploaded.map((asset, index) => ({
         url: asset.url,
-        caption: sanitizeCardText(config.photos[index].caption, 160),
+        caption: sanitizeCardText(config.photos[index].caption, 70),
       })),
       songId: musicFile ? 'custom' : 'none',
     }

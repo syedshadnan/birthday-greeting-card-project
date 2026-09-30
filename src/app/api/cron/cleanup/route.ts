@@ -4,6 +4,8 @@ import { supabaseRequest } from '../../../../lib/supabase/server'
 
 type ExpiredCard = { id: string; public_id: string; music_url: string | null }
 type PhotoRow = { image_url: string }
+const batchSize = 100
+const maxCardsPerRun = 500
 
 function authorized(request: Request) {
   const secret = process.env.CRON_SECRET
@@ -20,13 +22,16 @@ export async function GET(request: Request) {
   }
 
   try {
-    const expiredResponse = await supabaseRequest(
-      `/rest/v1/cards?paid=eq.false&status=in.(draft,published)&expires_at=lt.${encodeURIComponent(new Date().toISOString())}&select=id,public_id,music_url&limit=100`,
-    )
-    const cards = await expiredResponse.json() as ExpiredCard[]
     let removed = 0
 
-    for (const card of cards) {
+    while (removed < maxCardsPerRun) {
+      const expiredResponse = await supabaseRequest(
+        `/rest/v1/cards?paid=eq.false&status=in.(draft,published)&expires_at=lt.${encodeURIComponent(new Date().toISOString())}&select=id,public_id,music_url&order=expires_at.asc&limit=${batchSize}`,
+      )
+      const cards = await expiredResponse.json() as ExpiredCard[]
+      if (!cards.length) break
+
+      for (const card of cards) {
       const photosResponse = await supabaseRequest(
         `/rest/v1/card_photos?card_id=eq.${card.id}&select=image_url`,
       )
@@ -55,10 +60,12 @@ export async function GET(request: Request) {
         body: JSON.stringify({ card_id: null, status: 'rejected' }),
       })
       await supabaseRequest(`/rest/v1/cards?id=eq.${card.id}&paid=eq.false`, { method: 'DELETE' })
-      removed++
+        removed++
+        if (removed >= maxCardsPerRun) break
+      }
     }
 
-    return NextResponse.json({ removed })
+    return NextResponse.json({ removed, capped: removed >= maxCardsPerRun })
   } catch (error) {
     console.error('Could not clean up expired free birthday cards.', error)
     return NextResponse.json({ error: 'Expired-card cleanup failed. Review server logs and try again.' }, { status: 500 })

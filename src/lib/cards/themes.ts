@@ -3,9 +3,17 @@ export const cardThemes = {
   'rose-romantic': { label: 'Rose romantic', className: 'theme-rose' },
   'midnight-galaxy': { label: 'Midnight galaxy', className: 'theme-midnight' },
   'pastel-cute': { label: 'Pastel cute', className: 'theme-pastel' },
+  cute: { label: 'Cute', className: 'theme-peach' },
+  friend: { label: 'Best friend', className: 'theme-sky' },
+  elegant: { label: 'Elegant', className: 'theme-elegant' },
+  funny: { label: 'Funny', className: 'theme-lime' },
+  minimal: { label: 'Minimal', className: 'theme-minimal' },
+  cinematic: { label: 'Cinematic', className: 'theme-cinematic' },
+  party: { label: 'Birthday party', className: 'theme-party' },
 } as const
 
 export type CardTheme = keyof typeof cardThemes
+export const cardThemeChoices: CardTheme[] = ['cute', 'rose-romantic', 'friend', 'elegant', 'funny', 'minimal', 'cinematic', 'party']
 export type CardLanguage = 'en' | 'bn'
 
 export type CardConfig = {
@@ -14,6 +22,7 @@ export type CardConfig = {
   openingLine: string
   letter: string
   reasons: string[]
+  keepsakeNote: string
   finalWish: string
   photos: { url: string; caption: string }[]
   songId: 'none' | 'custom'
@@ -42,6 +51,7 @@ export function isCardConfig(value: unknown): value is CardConfig {
     && config.reasons.length >= 3
     && config.reasons.length <= 6
     && config.reasons.every(reason => typeof reason === 'string')
+    && typeof config.keepsakeNote === 'string'
     && typeof config.finalWish === 'string'
     && Array.isArray(config.photos)
     && config.photos.length <= 6

@@ -3,7 +3,23 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "scripts": { "dev": "next dev", "build": "next build", "start": "next start", "lint": "tsc --noEmit" },
-  "dependencies": { "next": "latest", "typescript": "latest", "react": "latest", "react-dom": "latest" },
-  "devDependencies": { "@types/node": "latest", "@types/react": "latest", "@types/react-dom": "latest" }
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@types/three": "^0.186.0",
+    "next": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "three": "^0.186.1",
+    "typescript": "latest"
+  },
+  "devDependencies": {
+    "@types/node": "latest",
+    "@types/react": "latest",
+    "@types/react-dom": "latest"
+  }
 }

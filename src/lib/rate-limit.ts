@@ -2,8 +2,13 @@ import { createHash } from 'node:crypto'
 import { supabaseRequest } from './supabase/server'
 
 export async function checkRateLimit(request: Request, bucket: string, limit: number, windowSeconds: number) {
-  const forwarded = request.headers.get('x-forwarded-for')?.split(',').at(-1)?.trim()
-  const address = request.headers.get('x-real-ip') || forwarded || 'unknown'
+  // `x-forwarded-for` and `x-real-ip` can be supplied by the caller. Vercel
+  // overwrites its own header at the edge, so only trust that platform header.
+  // On another host, use one shared bucket rather than letting callers choose
+  // their own rate-limit identity.
+  const address = process.env.VERCEL === '1'
+    ? request.headers.get('x-vercel-forwarded-for')?.trim() || 'unknown'
+    : 'unknown'
   const secret = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!secret) throw new Error('Supabase is not configured for rate limiting.')
 
