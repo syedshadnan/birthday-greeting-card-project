@@ -808,6 +808,95 @@ html.has-scroll-reveal [data-reveal]:not(.is-visible) {
   transform: translateX(-50%);
 }
 
+.landing-page .hero h1 em,
+.landing-page .featured-card-copy h2 i {
+  color: #bf5d4c;
+}
+
+.landing-page .hero .bg::before {
+  background:
+    radial-gradient(55% 60% at 2% 20%, #f3c7b8 0%, #f3c7b8bf 45%, transparent 85%),
+    radial-gradient(55% 60% at 98% 25%, #f5dfad 0%, #f5dfadbf 45%, transparent 85%),
+    radial-gradient(50% 55% at 5% 80%, #f1d0c4 0%, #f1d0c4b3 50%, transparent 85%),
+    radial-gradient(50% 55% at 95% 80%, #dce8d9 0%, #dce8d9bf 50%, transparent 85%),
+    radial-gradient(65% 65% at 50% 50%, #fbede5 0%, #fbede599 60%, transparent 95%);
+}
+
+.landing-page .hero .blob.b1 { background: #efc1b2; }
+.landing-page .hero .blob.b2 { background: #f1d9a5; }
+.landing-page .hero .blob.b3 { background: #e7b9aa; }
+.landing-page .hero .blob.b4 { background: #d8d9c5; }
+
+.landing-page .hero .orb {
+  background: radial-gradient(circle at 30% 28%, #f7c5a7, #d98570 58%, #b96f62);
+  box-shadow: 0 24px 42px -16px #a765554d;
+}
+
+.landing-page .featured-cards-section {
+  background:
+    radial-gradient(55% 60% at 2% 10%, #efc1b270 0%, transparent 75%),
+    radial-gradient(55% 60% at 98% 15%, #f1d9a570 0%, transparent 75%),
+    radial-gradient(50% 55% at 5% 90%, #e7c8bc66 0%, transparent 75%),
+    radial-gradient(50% 55% at 95% 85%, #d8e3d366 0%, transparent 75%),
+    #faf5eb;
+}
+
+.landing-page .how {
+  background: #f1ece2;
+  padding: clamp(64px, 9vw, 110px) max(24px, calc((100% - 1184px) / 2));
+  text-align: center;
+}
+
+.landing-page .how > h2 {
+  margin-inline: auto;
+}
+
+.landing-page .steps article {
+  border-color: #ddd3c3;
+  background: #faf5eb;
+  padding: 26px 24px 18px;
+  text-align: center;
+}
+
+.landing-page .steps {
+  width: min(100%, 1184px);
+  margin-inline: auto;
+  text-align: center;
+}
+
+.landing-page .steps article + article {
+  padding-left: 24px;
+}
+
+.landing-page .steps article p {
+  margin-inline: auto;
+}
+
+.landing-page .closing {
+  background-color: #e9b5a2;
+  background-image:
+    radial-gradient(#fff8dc70 1.15px, transparent 1.15px),
+    linear-gradient(120deg, #eeb99f 0%, #e2a5a0 58%, #d3aaa9 100%);
+}
+
+.landing-page .closing p {
+  color: #59444a;
+}
+
+.landing-page + .site-footer {
+  background: #faf5eb;
+  border-color: #e8dfd0;
+}
+
+.landing-page + .site-footer .logo i,
+.landing-page + .site-footer a:hover {
+  color: #bf5d4c;
+}
+
+.polaroid img {
+  border-radius: 1px;
+}
+
 .hero > .eyebrow {
   width: fit-content;
   padding: 9px 13px;

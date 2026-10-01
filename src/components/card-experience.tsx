@@ -113,7 +113,7 @@ function templateConfig(): CardConfig {
   }
 }
 
-export default function CardExperience({ slug }: { slug: string }) {
+export default function CardExperience({ slug, adminPreviewId }: { slug: string; adminPreviewId?: string }) {
   const [card, setCard] = useState<CardPayload | null>(slug === 'demo' ? demoCard : null)
   const [error, setError] = useState('')
   const [lockedCard, setLockedCard] = useState<LockedCard | null>(null)
@@ -147,7 +147,10 @@ export default function CardExperience({ slug }: { slug: string }) {
     if (slug === 'demo') return
     const controller = new AbortController()
     setBrokenPhotoUrls(new Set())
-    fetch(`/api/cards/${encodeURIComponent(slug)}`, { signal: controller.signal })
+    const cardUrl = adminPreviewId
+      ? `/api/admin/cards/${encodeURIComponent(adminPreviewId)}`
+      : `/api/cards/${encodeURIComponent(slug)}`
+    fetch(cardUrl, { signal: controller.signal, cache: 'no-store' })
       .then(async response => {
         const result = await response.json() as Record<string, unknown>
         if (!response.ok) throw new Error(typeof result.error === 'string' ? result.error : 'We could not open this birthday card.')
@@ -166,7 +169,7 @@ export default function CardExperience({ slug }: { slug: string }) {
         if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : 'We could not open this birthday card.')
       })
     return () => controller.abort()
-  }, [slug])
+  }, [slug, adminPreviewId])
 
   const unlock = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -382,12 +385,12 @@ export default function CardExperience({ slug }: { slug: string }) {
     <div className="story-wishes" aria-hidden="true">{floatingWishes.map((wish,index)=><span key={`wish-${index}-${wish}`}>{wish}</span>)}</div>
     {celebrationCount>0&&<div className={`birthday-confetti celebration-${card.theme}`} key={`celebration-${celebrationCount}`} aria-hidden="true">{Array.from({length:24},(_,index)=><i key={`particle-${index}`} style={{'--particle-index':index} as React.CSSProperties}>{celebrationParticles[index%celebrationParticles.length]}</i>)}</div>}
     <header className="story-controls">
-      <a className="brand" href="/">✦ wishwell</a>
+      <a className="brand" href={adminPreviewId?'/admin':'/'}>{adminPreviewId?'← Back to admin':'✦ wishwell'}</a>
       <div className="story-controls-right">
         {card.musicUrl || usesSoftMusic
           ? <button className="story-music-toggle" type="button" onClick={toggleMusic} aria-label={musicPlaying?'Pause music':'Play music'}>{musicPlaying?'♫ Music on':card.musicCredit?'♫ Birthday song':usesSoftMusic?'♫ Soft Wish':'♫ Your music'}</button>
           : <span className="story-music-off">♫ No music</span>}
-        <button className="story-icon-button" type="button" aria-label="Share this card" onClick={()=>void shareCard()}>↗</button>
+        {!adminPreviewId&&<button className="story-icon-button" type="button" aria-label="Share this card" onClick={()=>void shareCard()}>↗</button>}
       </div>
     </header>
     {card.musicCredit&&<details className="story-music-credit"><summary aria-label="Music credits" title="Music credits">ⓘ</summary><div><span>{defaultBirthdayMusic.title} by {defaultBirthdayMusic.artist}</span><a href={defaultBirthdayMusic.source} target="_blank" rel="noreferrer">Source</a><a href={defaultBirthdayMusic.licenseUrl} target="_blank" rel="noreferrer">{defaultBirthdayMusic.license}</a></div></details>}

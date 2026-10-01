@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { hasAdminSession, isSameOriginRequest } from '../../../../../lib/admin-auth'
 import { getSupabaseConfig, supabaseRequest } from '../../../../../lib/supabase/server'
+import { cardThemes } from '../../../../../lib/cards/themes'
+import { defaultBirthdayMusic } from '../../../../../lib/cards/music'
 
 type CardForDeletion = {
   id: string
@@ -21,6 +23,54 @@ function storagePath(assetUrl: string, publicId: string, supabaseUrl: string) {
     throw new Error('A card asset has an invalid storage path.')
   }
   return `${publicId}/${fileName}`
+}
+
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  if (!hasAdminSession(request)) {
+    return NextResponse.json({ error: 'Sign in as an admin to preview this card.' }, { status: 401 })
+  }
+
+  const { id } = await params
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+    return NextResponse.json({ error: 'This birthday card could not be found.' }, { status: 404 })
+  }
+
+  try {
+    const response = await supabaseRequest(
+      `/rest/v1/cards?id=eq.${id}&select=id,public_id,theme,language,card_config,recipient_name,sender_name,message,music_url,card_photos(image_url,sort_order)&limit=1`,
+    )
+    const [card] = await response.json()
+    if (!card) {
+      return NextResponse.json({ error: 'This birthday card could not be found.' }, { status: 404 })
+    }
+
+    const config = card.card_config && typeof card.card_config === 'object' ? card.card_config : {}
+    const theme = cardThemes[card.theme as keyof typeof cardThemes] ? card.theme : 'pastel-cute'
+    const hasCustomMusic = typeof card.music_url === 'string'
+    const musicChoice = config.musicChoice === 'soft' ? 'soft' : 'signature'
+
+    return NextResponse.json({
+      id: card.public_id,
+      theme,
+      language: card.language === 'bn' ? 'bn' : 'en',
+      config,
+      fullAccess: true,
+      recipient: card.recipient_name,
+      sender: card.sender_name,
+      message: card.message,
+      music: hasCustomMusic ? card.music_url : musicChoice === 'soft' ? null : defaultBirthdayMusic.url,
+      musicCredit: !hasCustomMusic && musicChoice === 'signature',
+      photos: (card.card_photos ?? [])
+        .sort((a: { sort_order: number }, b: { sort_order: number }) => a.sort_order - b.sort_order)
+        .map((photo: { image_url: string }) => photo.image_url),
+    }, { headers: { 'Cache-Control': 'no-store, private' } })
+  } catch (error) {
+    console.error('Could not load a generated birthday card for the admin preview.', error)
+    return NextResponse.json({ error: 'This card could not be previewed. Please try again.' }, { status: 500 })
+  }
 }
 
 export async function DELETE(

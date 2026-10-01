@@ -158,7 +158,7 @@ export default function AdminDashboard() {
           </dl>
           {photos.length>0&&<div className="admin-card-photos" aria-label={`${photos.length} card photos`}>{photos.map((photo,index)=><img key={photo.image_url} src={photo.image_url} alt={`Photo ${index+1} for ${card.recipient_name}`} loading="lazy"/>)}</div>}
           <div className="admin-payment-actions">
-            <a className="button outline" href={`/card/${card.public_id}`} target="_blank" rel="noreferrer">Open card ↗</a>
+            <a className="button outline" href={`/admin/preview/${card.id}`} target="_blank" rel="noreferrer">Open card ↗</a>
             <button className="button outline admin-delete-button" type="button" disabled={busyId===card.id} onClick={()=>void deleteCard(card)}>{busyId===card.id?'Deleting…':'Delete card'}</button>
           </div>
         </article>
