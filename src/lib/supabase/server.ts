@@ -9,7 +9,11 @@ export function getSupabaseConfig() {
   return { url: supabaseUrl, key: serviceRoleKey }
 }
 
-export async function supabaseRequest(path: string, init: RequestInit = {}) {
+export async function supabaseRequest(
+  path: string,
+  init: RequestInit = {},
+  options: { ignoreNotFound?: boolean } = {},
+) {
   const { url, key } = getSupabaseConfig()
   const response = await fetch(`${url}${path}`, {
     ...init,
@@ -21,7 +25,7 @@ export async function supabaseRequest(path: string, init: RequestInit = {}) {
     cache: 'no-store',
   })
 
-  if (!response.ok) {
+  if (!response.ok && !(options.ignoreNotFound && response.status === 404)) {
     const detail = await response.text()
     throw new Error(`Supabase request failed (${response.status}): ${detail}`)
   }

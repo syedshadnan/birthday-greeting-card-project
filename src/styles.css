@@ -576,12 +576,7 @@ nav.site-nav .links {
   font-weight: 500;
   letter-spacing: -.02em;
   display: block;
-  background: linear-gradient(100deg, #b93b22, #e67657, #b93b22);
-  background-size: 200% auto;
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  animation: shine 5s linear infinite;
+  color: #bf4d3b;
 }
 .sub {
   font-size: 18px;
@@ -1130,5 +1125,35 @@ nav.site-nav .links {
   .reveal, h1 .w span {
     opacity: 1;
     transform: none;
+  }
+}
+
+@media(max-width:800px) {
+  .hero .blob,
+  .hero .stage .confetti {
+    display: none;
+  }
+  .hero .stage {
+    perspective: none;
+  }
+  .hero .stage .halo,
+  .hero .stage .ring,
+  .hero .stage .orb,
+  .hero .stage .float-note,
+  .hero .stage .card,
+  .hero .stage .card .heart,
+  .hero .stage .card .shine {
+    animation: none;
+  }
+  .hero .stage .tilt {
+    transform: none;
+    transform-style: flat;
+    transition: none;
+  }
+  .hero .stage .card {
+    transform: rotate(2deg);
+  }
+  .hero .stage .float-note {
+    backdrop-filter: none;
   }
 }

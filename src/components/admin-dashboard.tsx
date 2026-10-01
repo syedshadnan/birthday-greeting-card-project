@@ -2,19 +2,24 @@
 
 import { useCallback, useEffect, useState } from 'react'
 
-type PaymentRow = {
+type AdminCard = {
   id: string
-  card_id: string | null
-  customer_name: string
-  bkash_number: string
-  payment_method: 'bkash' | 'nagad'
-  payer_phone: string
-  transaction_id: string
-  amount: number
-  status: 'pending' | 'verified' | 'rejected'
+  public_id: string
+  recipient_name: string
+  sender_name: string
+  message: string
+  theme: string
+  status: string
   created_at: string
-  verified_at: string | null
-  cards: null | { public_id: string; template_slug: string; recipient_name: string }
+  expires_at: string
+  card_photos: { image_url: string; sort_order: number }[]
+}
+
+const pageSize = 50
+
+function displayDate(value: string) {
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? 'Unknown' : date.toLocaleString()
 }
 
 export default function AdminDashboard() {
@@ -22,20 +27,30 @@ export default function AdminDashboard() {
   const [checking, setChecking] = useState(true)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [payments, setPayments] = useState<PaymentRow[]>([])
+  const [cards, setCards] = useState<AdminCard[]>([])
+  const [total, setTotal] = useState(0)
+  const [offset, setOffset] = useState(0)
+  const [loadingCards, setLoadingCards] = useState(false)
   const [error, setError] = useState('')
   const [busyId, setBusyId] = useState('')
   const [loggingIn, setLoggingIn] = useState(false)
 
-  const loadPayments = useCallback(async () => {
-    const response = await fetch('/api/admin/payments')
-    const result: { payments?: PaymentRow[]; error?: string } = await response.json()
-    if (response.status === 401) {
-      setAuthenticated(false)
-      return
+  const loadCards = useCallback(async (nextOffset: number) => {
+    setLoadingCards(true)
+    try {
+      const response = await fetch(`/api/admin/cards?offset=${nextOffset}`, { cache: 'no-store' })
+      const result: { cards?: AdminCard[]; total?: number; error?: string } = await response.json()
+      if (response.status === 401) {
+        setAuthenticated(false)
+        return
+      }
+      if (!response.ok) throw new Error(result.error || 'Could not load generated cards.')
+      setCards(result.cards ?? [])
+      setTotal(result.total ?? 0)
+      setOffset(nextOffset)
+    } finally {
+      setLoadingCards(false)
     }
-    if (!response.ok) throw new Error(result.error || 'Could not load payment requests.')
-    setPayments(result.payments ?? [])
   }, [])
 
   useEffect(() => {
@@ -51,9 +66,9 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     if (authenticated) {
-      loadPayments().catch(cause => setError(cause instanceof Error ? cause.message : 'Could not load payment requests.'))
+      loadCards(0).catch(cause => setError(cause instanceof Error ? cause.message : 'Could not load generated cards.'))
     }
-  }, [authenticated, loadPayments])
+  }, [authenticated, loadCards])
 
   const signIn = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -76,29 +91,37 @@ export default function AdminDashboard() {
     }
   }
 
-  const review = async (payment: PaymentRow, status: 'verified' | 'rejected') => {
-    setBusyId(payment.id)
+  const deleteCard = async (card: AdminCard) => {
+    if (!window.confirm(`Permanently delete the card for ${card.recipient_name}? Its photos and uploaded music will also be deleted.`)) return
+
+    setBusyId(card.id)
     setError('')
     try {
-      const response = await fetch(`/api/admin/payments/${payment.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status }),
-      })
+      const response = await fetch(`/api/admin/cards/${card.id}`, { method: 'DELETE' })
       const result: { error?: string } = await response.json()
-      if (!response.ok) throw new Error(result.error || 'Could not review this payment.')
-      await loadPayments()
+      if (!response.ok) throw new Error(result.error || 'Could not delete this card.')
+      if (cards.length === 1 && offset > 0) {
+        await loadCards(Math.max(0, offset - pageSize))
+      } else {
+        await loadCards(offset)
+      }
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Could not review this payment.')
+      setError(cause instanceof Error ? cause.message : 'Could not delete this card.')
     } finally {
       setBusyId('')
     }
   }
 
   const signOut = async () => {
-    await fetch('/api/admin/session', { method: 'DELETE' })
-    setAuthenticated(false)
-    setPayments([])
+    try {
+      const response = await fetch('/api/admin/session', { method: 'DELETE' })
+      if (!response.ok) throw new Error('Could not sign out. Please try again.')
+      setAuthenticated(false)
+      setCards([])
+      setTotal(0)
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not sign out.')
+    }
   }
 
   if (checking) return <main className="payment-page"><p>Checking admin sign-in…</p></main>
@@ -106,7 +129,7 @@ export default function AdminDashboard() {
   if (!authenticated) return <><nav><a className="brand" href="/">✦ wishwell</a></nav><main className="payment-page">
     <span className="eyebrow">PRIVATE ADMIN AREA</span>
     <h1>Good to <i>see you.</i></h1>
-    <p className="sub">All card themes and scenes are free right now. No payment review is needed.</p>
+    <p className="sub">Manage generated birthday cards, check their expiry dates, and remove cards when needed.</p>
     <form className="payment-box" onSubmit={signIn}>
       <label htmlFor="admin-email">ADMIN EMAIL</label><input id="admin-email" type="email" value={email} onChange={event=>setEmail(event.target.value)} autoComplete="username" required/>
       <label htmlFor="admin-password">ADMIN PASSWORD</label><input id="admin-password" type="password" value={password} onChange={event=>setPassword(event.target.value)} autoComplete="current-password" required/>
@@ -115,19 +138,36 @@ export default function AdminDashboard() {
     </form>
   </main></>
 
-  return <><nav><a className="brand" href="/">✦ wishwell</a><button className="upload" onClick={signOut}>Sign out</button></nav>
+  return <><nav><a className="brand" href="/">✦ wishwell</a><button className="upload" onClick={()=>void signOut()}>Sign out</button></nav>
     <main className="admin-page">
-      <div className="admin-heading"><div><span className="eyebrow">PRIVATE ADMIN AREA</span><h1>All cards are <i>free.</i></h1><p>All nine scenes are available on every card. Payments and approvals are disabled.</p></div></div>
+      <div className="admin-heading"><div><span className="eyebrow">PRIVATE ADMIN AREA</span><h1>Generated <i>cards.</i></h1><p>Review each card, check when it expires, or permanently delete its database record and uploaded assets.</p></div></div>
       {error&&<p className="form-error" role="alert">{error}</p>}
-      {!payments.length?<div className="payment-box"><p>No payment is needed. Create and share any card for free.</p></div>:<div className="admin-payments">{payments.map(payment=>{
-        const card=Array.isArray(payment.cards)?payment.cards[0]:payment.cards
-        return <article className="admin-payment" key={payment.id}>
-          <div className="admin-payment-heading"><div><span className="eyebrow">{payment.payment_method.toUpperCase()} · ৳{payment.amount}</span><h2>{payment.customer_name}</h2></div><span className={'payment-status '+payment.status}>{payment.status}</span></div>
-          <dl><div><dt>Transaction ID</dt><dd>{payment.transaction_id}</dd></div><div><dt>Paid from</dt><dd>{payment.payer_phone||payment.bkash_number}</dd></div><div><dt>Submitted</dt><dd>{new Date(payment.created_at).toLocaleString()}</dd></div><div><dt>Card for</dt><dd>{card?.recipient_name??'Card unavailable'} · {card?.template_slug??'—'}</dd></div></dl>
-          {card&&<a href={`/card/${card.public_id}`} target="_blank" rel="noreferrer">Open card link ↗</a>}
-          {payment.status==='pending'&&<div className="admin-payment-actions"><button className="button dark" disabled={busyId===payment.id||!card} onClick={()=>void review(payment,'verified')}>{busyId===payment.id?'Saving…':'Verify payment and publish card'}</button><button className="button outline" disabled={busyId===payment.id} onClick={()=>void review(payment,'rejected')}>Reject</button></div>}
+      <div className="admin-cards-toolbar">
+        <strong>{total} {total === 1 ? 'card' : 'cards'}</strong>
+        <button className="button outline" type="button" disabled={loadingCards} onClick={()=>void loadCards(offset)}>{loadingCards?'Loading…':'Refresh'}</button>
+      </div>
+      {loadingCards&&!cards.length?<div className="payment-box"><p>Loading generated cards…</p></div>:!cards.length?<div className="payment-box"><p>No generated cards yet.</p></div>:<div className="admin-payments">{cards.map(card=>{
+        const expired = new Date(card.expires_at).getTime() <= Date.now() || card.status === 'expired'
+        const photos = [...(card.card_photos ?? [])].sort((a,b)=>a.sort_order-b.sort_order)
+        return <article className="admin-payment admin-card" key={card.id}>
+          <div className="admin-payment-heading"><div><span className="eyebrow">{card.theme} · {card.status}</span><h2>{card.recipient_name}</h2><p className="admin-card-byline">From {card.sender_name}</p></div><span className={'payment-status '+(expired?'rejected':'verified')}>{expired?'Expired':'Active'}</span></div>
+          <dl>
+            <div><dt>Created</dt><dd><time dateTime={card.created_at}>{displayDate(card.created_at)}</time></dd></div>
+            <div><dt>Expires</dt><dd><time dateTime={card.expires_at}>{displayDate(card.expires_at)}</time></dd></div>
+            <div className="admin-card-message"><dt>Message</dt><dd>{card.message}</dd></div>
+          </dl>
+          {photos.length>0&&<div className="admin-card-photos" aria-label={`${photos.length} card photos`}>{photos.map((photo,index)=><img key={photo.image_url} src={photo.image_url} alt={`Photo ${index+1} for ${card.recipient_name}`} loading="lazy"/>)}</div>}
+          <div className="admin-payment-actions">
+            <a className="button outline" href={`/card/${card.public_id}`} target="_blank" rel="noreferrer">Open card ↗</a>
+            <button className="button outline admin-delete-button" type="button" disabled={busyId===card.id} onClick={()=>void deleteCard(card)}>{busyId===card.id?'Deleting…':'Delete card'}</button>
+          </div>
         </article>
       })}</div>}
+      <div className="admin-cards-pagination">
+        <button className="button outline" type="button" disabled={loadingCards||offset===0} onClick={()=>void loadCards(Math.max(0,offset-pageSize))}>← Previous</button>
+        <span>{total ? `${offset+1}–${Math.min(offset+cards.length,total)} of ${total}` : '0 cards'}</span>
+        <button className="button outline" type="button" disabled={loadingCards||offset+cards.length>=total} onClick={()=>void loadCards(offset+pageSize)}>Next →</button>
+      </div>
     </main>
   </>
 }

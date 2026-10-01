@@ -1,10 +1,13 @@
 import { NextResponse } from 'next/server'
 import { isSameOriginRequest } from '../../../lib/admin-auth'
-import { isCardConfig, isCardTheme, sanitizeCardText } from '../../../lib/cards/themes'
+import { cardLetterMaxLength, isCardConfig, isCardTheme, sanitizeCardText } from '../../../lib/cards/themes'
+import { hashCardPassword } from '../../../lib/cards/password'
+import { isPremium } from '../../../lib/cards/features'
 import { checkRateLimit } from '../../../lib/rate-limit'
 import { getSupabaseConfig, supabaseRequest } from '../../../lib/supabase/server'
 
 const legacyTemplates = new Set(['romantic', 'cute', 'friend', 'elegant', 'funny', 'minimal', 'cinematic', 'party'])
+const selectableThemes = new Set(['cute', 'rose-romantic', 'friend', 'elegant', 'funny', 'minimal', 'cinematic', 'party'])
 const maxMusicSize = 1_000_000
 const cardLifetimeMs = 7 * 24 * 60 * 60 * 1000
 type UploadedAsset = { path: string; url: string }
@@ -17,7 +20,7 @@ async function hasMp3Signature(file: File) {
 
 function safeSlug() {
   const alphabet = '23456789abcdefghjkmnpqrstuvwxyz'
-  const random = new Uint8Array(12)
+  const random = new Uint8Array(24)
   crypto.getRandomValues(random)
   return Array.from(random, value => alphabet[value % alphabet.length]).join('')
 }
@@ -55,7 +58,7 @@ export async function POST(request: Request) {
 
   try {
     const contentLength = Number(request.headers.get('content-length') ?? 0)
-    if (contentLength > 2_500_000) {
+    if (contentLength > 4_000_000) {
       return NextResponse.json({ error: 'The upload is too large. Compress photos and try again.' }, { status: 413 })
     }
     if (!await checkRateLimit(request, 'create-card', 8, 600)) {
@@ -72,20 +75,25 @@ export async function POST(request: Request) {
     const message = form.get('message')
     const language = form.get('language')
     const rawConfig = form.get('config')
+    const password = form.get('password')
+    const passwordHint = form.get('passwordHint')
     const photos = form.getAll('photos').filter((file): file is File => file instanceof File && file.size > 0)
     const rawMusic = form.get('music')
     const musicFile = rawMusic instanceof File && rawMusic.size > 0 ? rawMusic : undefined
     const musicRightsConfirmed = form.get('musicRightsConfirmed') === 'true'
 
     if (
-      typeof template !== 'string' || (!legacyTemplates.has(template) && !theme) ||
-      (theme && template !== theme) ||
+      typeof template !== 'string' || (!legacyTemplates.has(template) && !selectableThemes.has(template)) ||
+      (theme && (template !== theme || !selectableThemes.has(theme))) ||
       (access !== 'free' && access !== 'premium') ||
       typeof recipient !== 'string' || sanitizeCardText(recipient, 40).length < 1 || recipient.length > 40 ||
       typeof sender !== 'string' || sender.length > 60 ||
-      typeof message !== 'string' || message.length > 5000 ||
+      typeof message !== 'string' || message.length > cardLetterMaxLength ||
       (language !== 'en' && language !== 'bn') ||
       typeof rawConfig !== 'string'
+      || (isPremium && (typeof password !== 'string' || password.length < 6 || password.length > 128))
+      || (password !== null && typeof password !== 'string')
+      || (passwordHint !== null && (typeof passwordHint !== 'string' || passwordHint.length > 100))
     ) {
       return NextResponse.json({ error: 'Check the card details and choose a valid theme and access level.' }, { status: 400 })
     }
@@ -99,8 +107,7 @@ export async function POST(request: Request) {
 
     if (
       !isCardConfig(config) ||
-      config.reasons.some(reason => sanitizeCardText(reason, 180).length < 1) ||
-      config.letter.length > 5000 ||
+      config.letter.length > cardLetterMaxLength ||
       config.openingLine.length > 180 ||
       config.keepsakeNote.length > 300 ||
       config.finalWish.length > 500 ||
@@ -109,10 +116,10 @@ export async function POST(request: Request) {
       config.photos.some(photo => photo.caption.length > 70) ||
       (config.songId === 'custom') !== !!musicFile
     ) {
-      return NextResponse.json({ error: 'Add 3–6 reasons and check the length of each card section and photo caption.' }, { status: 400 })
+      return NextResponse.json({ error: 'Check the length of each card section and photo caption, then try again.' }, { status: 400 })
     }
-    if (photos.length > 6 || photos.some(file => file.type !== 'image/webp' || file.size > 200_000)) {
-      return NextResponse.json({ error: 'Add up to 6 compressed WebP photos, each no larger than 200 KB.' }, { status: 400 })
+    if (photos.length > 8 || photos.some(file => file.type !== 'image/webp' || file.size > 320_000)) {
+      return NextResponse.json({ error: 'Add up to 8 compressed WebP photos, each no larger than 320 KB.' }, { status: 400 })
     }
     if (rawMusic && !(rawMusic instanceof File)) {
       return NextResponse.json({ error: 'Choose an MP3 audio file.' }, { status: 400 })
@@ -142,21 +149,32 @@ export async function POST(request: Request) {
     }
     const cleanConfig = {
       relationship: sanitizeCardText(config.relationship, 80),
+      nickname: sanitizeCardText(config.nickname ?? '', 80),
       language,
       openingLine: sanitizeCardText(config.openingLine, 180),
-      letter: sanitizeCardText(config.letter, 5000),
-      reasons: config.reasons.map(reason => sanitizeCardText(reason, 180)),
+      letter: sanitizeCardText(config.letter, cardLetterMaxLength),
+      reasons: config.reasons.map(reason => sanitizeCardText(reason, 180)).filter(Boolean),
       keepsakeNote: sanitizeCardText(config.keepsakeNote, 300),
       finalWish: sanitizeCardText(config.finalWish, 500),
+      quote: sanitizeCardText(config.quote ?? '', 300),
+      closingLine: sanitizeCardText(config.closingLine ?? '', 300),
+      memories: (config.memories ?? []).map(memory => ({
+        date: sanitizeCardText(memory.date, 40),
+        text: sanitizeCardText(memory.text, 240),
+      })).filter(memory => memory.text),
+      musicChoice: config.musicChoice ?? 'signature',
       photos: uploaded.map((asset, index) => ({
         url: asset.url,
         caption: sanitizeCardText(config.photos[index].caption, 70),
       })),
       songId: musicFile ? 'custom' : 'none',
     }
-    const cleanMessage = sanitizeCardText(message, 5000)
+    const cleanMessage = sanitizeCardText(message, cardLetterMaxLength)
     const cleanRecipient = sanitizeCardText(recipient, 40)
     const cleanSender = sanitizeCardText(sender, 60)
+    const passwordHash = typeof password === 'string' && password.length >= 6
+      ? await hashCardPassword(password)
+      : null
     const now = Date.now()
     const expiry = now + cardLifetimeMs
 
@@ -176,6 +194,9 @@ export async function POST(request: Request) {
         music_url: uploadedMusic?.url ?? null,
         status: 'published',
         expires_at: new Date(expiry).toISOString(),
+        password_salt: passwordHash?.salt ?? null,
+        password_hash: passwordHash?.hash ?? null,
+        password_hint: typeof passwordHint === 'string' ? sanitizeCardText(passwordHint, 100) || null : null,
       }),
     })
     const [createdCard] = await cardResponse.json() as { id: string }[]

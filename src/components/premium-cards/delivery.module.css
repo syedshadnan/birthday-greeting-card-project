@@ -1,0 +1,70 @@
+.delivery { min-height: 100dvh; display: grid; grid-template-columns: minmax(0,1fr) minmax(320px,.8fr); gap: clamp(28px,7vw,96px); align-items: center; padding: max(32px,env(safe-area-inset-top)) max(24px,env(safe-area-inset-right)) max(32px,env(safe-area-inset-bottom)) max(24px,env(safe-area-inset-left)); background: radial-gradient(ellipse at 85% 15%,#f9e7d6 0,transparent 34%),#f9f6f1; color: #25211e; font-family: Inter,"Noto Sans Bengali","Nirmala UI",sans-serif; }
+.intro { width: min(100%,560px); justify-self: end; }
+.eyebrow,.qrHeading span { color: #8a553a; font: 600 11px "JetBrains Mono",monospace; letter-spacing: .18em; }
+.intro h1 { margin: 18px 0; font: 500 clamp(42px,7vw,76px)/.98 Fraunces,Georgia,serif; letter-spacing: -.045em; }
+.intro h1 i,.qrHeading strong { color: #a65c43; font-weight: 400; }
+.intro>p { max-width: 52ch; color: #524941; font-size: 16px; line-height: 1.65; }
+.linkLabel { display: grid; gap: 9px; margin-top: 30px; color: #665b51; font: 600 10px "JetBrains Mono",monospace; letter-spacing: .12em; }
+.linkRow { display: flex; gap: 8px; }
+.linkRow input { min-width: 0; flex: 1; min-height: 50px; padding: 10px 12px; border: 1px solid #d8cdc0; border-radius: 10px; background: #fff; color: #28221d; font: 13px Inter,sans-serif; }
+.linkRow button,.shareActions button { min-height: 48px; border: 0; border-radius: 999px; padding: 0 20px; background: #27221e; color: white; font: 600 14px Inter,sans-serif; cursor: pointer; transition: transform .18s cubic-bezier(.2,.75,.25,1),box-shadow .18s ease,filter .18s ease; }
+.linkRow button:hover,.shareActions button:hover { transform: translateY(-2px); box-shadow: 0 9px 20px #27221e30; filter: brightness(1.08); }
+.linkRow button:active,.shareActions button:active { transform: translateY(0) scale(.98); }
+.passwordBox { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px 20px; align-items: center; margin-top: 14px; padding: 16px; border: 1px solid #e5c6aa; border-radius: 12px; background: #fffaf5; }
+.passwordBox div { display: grid; gap: 7px; }
+.passwordBox span,.printPassword small { color: #725a47; font: 600 10px "JetBrains Mono",monospace; letter-spacing: .12em; }
+.passwordBox strong { font: 600 18px "JetBrains Mono",monospace; overflow-wrap: anywhere; }
+.passwordBox small { max-width: 170px; color: #675c53; font-size: 12px; line-height: 1.45; }
+.shareActions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+.shareActions .secondary { border: 1px solid #bcb1a7; background: transparent; color: #28221d; }
+.shareActions .secondary:hover { box-shadow: 0 8px 18px #5c45321a; }
+.notice { color: #594738; font-size: 14px; }
+.qrPanel { width: min(100%,400px); justify-self: start; padding: clamp(20px,4vw,32px); border: 1px solid #e6ddd2; border-radius: 22px; background: #fff; box-shadow: 0 24px 80px #5c45321a; text-align: center; }
+.qrHeading { display: grid; gap: 8px; }
+.qrHeading strong { font: 500 21px Fraunces,Georgia,serif; }
+.qrCode { display: grid; width: min(100%,280px); aspect-ratio: 1; place-items: center; margin: 20px auto 12px; background: white; }
+.qrCode svg { display: block; width: 100%; height: 100%; }
+.qrPanel>p { color: #5b524b; font-size: 13px; line-height: 1.5; }
+.downloads { display: flex; justify-content: center; flex-wrap: wrap; gap: 12px; margin: 14px 0 22px; }
+.downloads a { color: #774933; font-size: 13px; font-weight: 600; }
+.downloads a[aria-disabled="true"] { pointer-events: none; opacity: .5; }
+.printOptions { display: grid; gap: 12px; padding: 15px; border: 1px solid #e4d9cd; border-radius: 12px; text-align: left; }
+.printOptions legend { padding: 0 7px; color: #725a47; font: 600 10px "JetBrains Mono",monospace; letter-spacing: .1em; }
+.printOptions label { display: flex; align-items: center; gap: 9px; color: #39332e; font-size: 13px; line-height: 1.4; }
+.printOptions input { width: 18px; height: 18px; accent-color: #91553d; }
+.printOptions select { min-height: 38px; margin-left: auto; padding: 0 8px; border: 1px solid #d1c4b8; border-radius: 7px; color: #25211e; background: white; }
+.printArea { display: none; }
+.printCard,.passwordSlip { color: #201b18; font-family: Inter,"Noto Sans Bengali",sans-serif; text-align: center; }
+.printCard { display: flex; min-height: 180mm; flex-direction: column; align-items: center; justify-content: center; padding: 10mm; border: .5mm solid #e4d4c4; }
+.printCard>span,.passwordSlip>span { font: 10pt "JetBrains Mono",monospace; letter-spacing: .12em; }
+.printCard h2 { margin: 14mm 0 4mm; font: 28pt Fraunces,Georgia,serif; }
+.printCard h2 i { color: #9a543b; font-weight: 400; }
+.printQr { width: 78mm; height: 78mm; }
+.printQr svg { width: 100%; height: 100%; }
+.printCard>p { max-width: 100%; margin: 4mm 0; font-size: 9pt; overflow-wrap: anywhere; }
+.printPassword { display: grid; gap: 3mm; margin: 5mm 0; padding: 5mm 12mm; border: .4mm solid #c9b8a8; }
+.printPassword strong,.passwordSlip strong { font: 18pt "JetBrains Mono",monospace; }
+.printCard footer { margin-top: 7mm; color: #62574f; font-size: 10pt; }
+.passwordSlip { display: flex; min-height: 80mm; flex-direction: column; justify-content: center; gap: 8mm; border: .5mm dashed #8b7663; page-break-before: always; }
+.passwordSlip h2 { margin: 0; font: 24pt Fraunces,Georgia,serif; }
+.passwordSlip p { font-size: 10pt; }
+.hidePrintedPassword .printPassword { display: none; }
+.withSlip .printCard .printPassword { display: none; }
+.printArea[data-paper="A6"] .printCard { min-height: 138mm; }
+.printArea[data-paper="A6"] .printQr { width: 60mm; height: 60mm; }
+.intro :focus-visible,.qrPanel :focus-visible { outline: 3px solid #ae6549; outline-offset: 3px; }
+@media(max-width:760px) { .delivery { grid-template-columns: 1fr; }.intro,.qrPanel { justify-self: center; }.qrPanel { width: min(100%,460px); } }
+@media(max-width:420px) { .delivery { padding-inline: 18px; }.linkRow { flex-direction: column; }.linkRow button { width: 100%; } }
+@media print {
+  @page { size: A5 portrait; margin: 8mm; }
+  @page a6 { size: A6 portrait; margin: 6mm; }
+  .delivery .intro,.delivery .qrPanel { display: none !important; }
+  .printArea { visibility: visible !important; }
+  .printArea { display: block !important; position: absolute; inset: 0; width: 100%; color-adjust: exact; print-color-adjust: exact; }
+  .printArea[data-paper="A6"] { page: a6; }
+  .printArea[data-paper="A6"] .printCard { min-height: 130mm; }
+  .printArea[data-paper="A5"] .printCard { min-height: 190mm; }
+  .hidePrintedPassword .printPassword,.withSlip .printPassword { display: none !important; }
+  .withSlip .passwordSlip { display: flex !important; }
+}
+@media(prefers-reduced-motion:reduce) { .delivery { scroll-behavior: auto !important; } }
