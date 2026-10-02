@@ -8,7 +8,7 @@ import { formatBirthdayDate, safePhotoUrl } from './premium-cards/shared/content
 import gateStyles from './premium-cards/password-gate.module.css'
 import { premiumCardFeatures } from '../lib/cards/features'
 
-type CardPayload = {
+export type CardPayload = {
   id: string
   recipient: string
   sender: string
@@ -113,8 +113,13 @@ function templateConfig(): CardConfig {
   }
 }
 
-export default function CardExperience({ slug, adminPreviewId }: { slug: string; adminPreviewId?: string }) {
-  const [card, setCard] = useState<CardPayload | null>(slug === 'demo' ? demoCard : null)
+export default function CardExperience({ slug, adminPreviewId, previewCard, onExitPreview }: {
+  slug: string
+  adminPreviewId?: string
+  previewCard?: CardPayload
+  onExitPreview?: () => void
+}) {
+  const [card, setCard] = useState<CardPayload | null>(previewCard ?? (slug === 'demo' ? demoCard : null))
   const [error, setError] = useState('')
   const [lockedCard, setLockedCard] = useState<LockedCard | null>(null)
   const [unlockPassword, setUnlockPassword] = useState('')
@@ -144,7 +149,7 @@ export default function CardExperience({ slug, adminPreviewId }: { slug: string;
   const celebrationParticles = ['✦', '♥', '✧', '●', '🎉']
 
   useEffect(() => {
-    if (slug === 'demo') return
+    if (previewCard || slug === 'demo') return
     const controller = new AbortController()
     setBrokenPhotoUrls(new Set())
     const cardUrl = adminPreviewId
@@ -169,7 +174,7 @@ export default function CardExperience({ slug, adminPreviewId }: { slug: string;
         if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : 'We could not open this birthday card.')
       })
     return () => controller.abort()
-  }, [slug, adminPreviewId])
+  }, [slug, adminPreviewId, previewCard])
 
   const unlock = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -385,12 +390,16 @@ export default function CardExperience({ slug, adminPreviewId }: { slug: string;
     <div className="story-wishes" aria-hidden="true">{floatingWishes.map((wish,index)=><span key={`wish-${index}-${wish}`}>{wish}</span>)}</div>
     {celebrationCount>0&&<div className={`birthday-confetti celebration-${card.theme}`} key={`celebration-${celebrationCount}`} aria-hidden="true">{Array.from({length:24},(_,index)=><i key={`particle-${index}`} style={{'--particle-index':index} as React.CSSProperties}>{celebrationParticles[index%celebrationParticles.length]}</i>)}</div>}
     <header className="story-controls">
-      <a className="brand" href={adminPreviewId?'/admin':'/'}>{adminPreviewId?'← Back to admin':'✦ wishwell'}</a>
+      {onExitPreview ? (
+        <button className="brand" type="button" onClick={onExitPreview}>← Back to editing</button>
+      ) : (
+        <a className="brand" href={adminPreviewId?'/admin':'/'}>{adminPreviewId?'← Back to admin':'✦ wishwell'}</a>
+      )}
       <div className="story-controls-right">
         {card.musicUrl || usesSoftMusic
           ? <button className="story-music-toggle" type="button" onClick={toggleMusic} aria-label={musicPlaying?'Pause music':'Play music'}>{musicPlaying?'♫ Music on':card.musicCredit?'♫ Birthday song':usesSoftMusic?'♫ Soft Wish':'♫ Your music'}</button>
           : <span className="story-music-off">♫ No music</span>}
-        {!adminPreviewId&&<button className="story-icon-button" type="button" aria-label="Share this card" onClick={()=>void shareCard()}>↗</button>}
+        {!adminPreviewId&&!onExitPreview&&<button className="story-icon-button" type="button" aria-label="Share this card" onClick={()=>void shareCard()}>↗</button>}
       </div>
     </header>
     {card.musicCredit&&<details className="story-music-credit"><summary aria-label="Music credits" title="Music credits">ⓘ</summary><div><span>{defaultBirthdayMusic.title} by {defaultBirthdayMusic.artist}</span><a href={defaultBirthdayMusic.source} target="_blank" rel="noreferrer">Source</a><a href={defaultBirthdayMusic.licenseUrl} target="_blank" rel="noreferrer">{defaultBirthdayMusic.license}</a></div></details>}

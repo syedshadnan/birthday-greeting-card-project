@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { createHash, randomBytes } from 'node:crypto'
 import { isSameOriginRequest } from '../../../lib/admin-auth'
 import { cardLetterMaxLength, isCardConfig, isCardTheme, sanitizeCardText } from '../../../lib/cards/themes'
 import { hashCardPassword } from '../../../lib/cards/password'
@@ -23,6 +24,10 @@ function safeSlug() {
   const random = new Uint8Array(24)
   crypto.getRandomValues(random)
   return Array.from(random, value => alphabet[value % alphabet.length]).join('')
+}
+
+function claimTokenHash(token: string) {
+  return createHash('sha256').update(token).digest('hex')
 }
 
 async function uploadPhoto(file: File, id: string): Promise<UploadedAsset> {
@@ -136,6 +141,7 @@ export async function POST(request: Request) {
     }
 
     cardId = safeSlug()
+    const claimToken = randomBytes(32).toString('base64url')
     for (const photo of photos) uploaded.push(await uploadPhoto(photo, cardId))
     if (musicFile) {
       const { url } = getSupabaseConfig()
@@ -197,6 +203,7 @@ export async function POST(request: Request) {
         password_salt: passwordHash?.salt ?? null,
         password_hash: passwordHash?.hash ?? null,
         password_hint: typeof passwordHint === 'string' ? sanitizeCardText(passwordHint, 100) || null : null,
+        claim_token_hash: claimTokenHash(claimToken),
       }),
     })
     const [createdCard] = await cardResponse.json() as { id: string }[]
@@ -216,7 +223,15 @@ export async function POST(request: Request) {
       })
     }
 
-    return NextResponse.json({ id: cardId, premium: false }, { status: 201 })
+    const result = NextResponse.json({ id: cardId, premium: false }, { status: 201 })
+    result.cookies.set(`wishwell_card_claim_${cardId}`, claimToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: Math.floor(cardLifetimeMs / 1000),
+    })
+    return result
   } catch (error) {
     console.error('Could not create birthday card.', error)
     if (cardId) {

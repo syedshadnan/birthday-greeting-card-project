@@ -15,13 +15,16 @@ npm run start
 
 Card links are stored in Supabase so recipients can open them on another device. Before hosting:
 
-1. Run `supabase/migrations/001_initial_schema.sql` through `supabase/migrations/008_password_protected_cards.sql` in the Supabase SQL Editor, in order. Migration 005 ensures the public card ID column stores share IDs as text. Migration 006 publishes existing drafts as free cards and clears their paid flag. Migration 007 limits active cards to seven days. Migration 008 adds the password salt, bcrypt hash, and optional hint columns used by protected cards.
-2. Set `NEXT_PUBLIC_SUPABASE_URL` to the project URL.
+1. Run `supabase/migrations/001_initial_schema.sql` through `supabase/migrations/011_card_share_authorization.sql` in the Supabase SQL Editor, in order. Migration 005 ensures the public card ID column stores share IDs as text. Migration 006 publishes existing drafts as free cards and clears their paid flag. Migration 007 limits active cards to seven days. Migration 008 adds the password salt, bcrypt hash, and optional hint columns used by protected cards. Migration 009 creates the `profiles` table, default role assignment, trigger-based creation from Supabase Auth users, and RLS policies. Migration 010 adds nullable card ownership and a one-time anonymous claim token. Migration 011 gates newly created cards until an authenticated owner unlocks sharing and preserves existing cards.
+2. Set `NEXT_PUBLIC_SUPABASE_URL` to the project URL and `NEXT_PUBLIC_SUPABASE_ANON_KEY` to the anon key for browser auth.
 3. Set `SUPABASE_SERVICE_ROLE_KEY` to the project's **service-role** key as a server-only environment variable. Never expose it using a `NEXT_PUBLIC_` name.
-4. Set `NEXT_PUBLIC_SITE_URL` to the deployed site's canonical HTTPS URL.
-5. Set `ADMIN_EMAILS` to the comma-separated admin email allowlist, `ADMIN_PASSWORD` to a long unique password, and `ADMIN_SESSION_SECRET` to a random secret of at least 32 characters. Generate a secret locally with `node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"`. Sign in at `/admin`.
-6. Set `CRON_SECRET` to a long random secret. Vercel sends it to the daily cleanup endpoint; requests without the matching authorization are rejected. Keep it server-only.
-7. Card password protection is enabled by default. Set `NEXT_PUBLIC_CARD_PREMIUM_ENABLED=false` at build time to disable it.
+4. Set `NEXT_PUBLIC_SITE_URL` to the canonical base URL used by the app. The auth callback uses `${NEXT_PUBLIC_SITE_URL}/auth/callback`, so local development should be `http://localhost:3000` and production should be the deployed HTTPS domain.
+5. In the Supabase dashboard, enable Email/Password and Google OAuth, then add the auth redirect URLs:
+   - `http://localhost:3000/auth/callback`
+   - `https://<your-production-domain>/auth/callback`
+6. Set `ADMIN_EMAILS` to the comma-separated admin email allowlist, `ADMIN_PASSWORD` to a long unique password, and `ADMIN_SESSION_SECRET` to a random secret of at least 32 characters. Generate a secret locally with `node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"`. Sign in at `/admin`.
+7. Set `CRON_SECRET` to a long random secret. Vercel sends it to the daily cleanup endpoint; requests without the matching authorization are rejected. Keep it server-only.
+8. Card password protection is enabled by default. Set `NEXT_PUBLIC_CARD_PREMIUM_ENABLED=false` at build time to disable it.
 
 On Vercel, import the project and add the variables in **Project Settings → Environment Variables** for the environments you will deploy, then deploy the project. Vercel detects this as a Next.js application; `vercel.json` schedules daily cleanup. The scheduled job requires a Vercel plan that supports Cron Jobs. Keep all credentials server-only.
 

@@ -2,11 +2,13 @@
 
 import QRCode from 'qrcode'
 import { useEffect, useState } from 'react'
+import { createSupabaseBrowserClient } from '../../lib/supabase/client'
 import styles from './delivery.module.css'
 
-type DeliveryProps = { url: string; password?: string; template: string }
+type DeliveryProps = { cardId: string; password?: string; template: string }
 
-export default function CardDelivery({ url, password, template }: DeliveryProps) {
+export default function CardDelivery({ cardId, password, template }: DeliveryProps) {
+  const [url, setUrl] = useState<string | null>(null)
   const [svg, setSvg] = useState('')
   const [png, setPng] = useState('')
   const [svgUrl, setSvgUrl] = useState('')
@@ -15,8 +17,56 @@ export default function CardDelivery({ url, password, template }: DeliveryProps)
   const [paper, setPaper] = useState<'A5' | 'A6'>('A5')
   const [notice, setNotice] = useState('')
   const [copied, setCopied] = useState(false)
+  const [claiming, setClaiming] = useState(false)
+  const [claimed, setClaimed] = useState(false)
+
+  const authorizeShare = async () => {
+    if (claimed) return true
+    if (claiming) return false
+    setClaiming(true)
+    try {
+      const supabase = createSupabaseBrowserClient()
+      const { data } = await supabase.auth.getUser()
+      if (!data.user) {
+        window.location.href = `/login?next=${encodeURIComponent(`/share/${cardId}`)}`
+        return false
+      }
+
+      const claimResponse = await fetch(`/api/cards/${encodeURIComponent(cardId)}/claim`, {
+        method: 'POST',
+        credentials: 'include',
+      })
+      if (!claimResponse.ok && claimResponse.status !== 403 && claimResponse.status !== 409) {
+        const result = await claimResponse.json() as { error?: string }
+        throw new Error(result.error || 'This card could not be attached to your account.')
+      }
+
+      const shareResponse = await fetch(`/api/cards/${encodeURIComponent(cardId)}/share`, {
+        credentials: 'include',
+        cache: 'no-store',
+      })
+      const result = await shareResponse.json() as { url?: string; error?: string }
+      if (!shareResponse.ok || !result.url) throw new Error(result.error || 'This card is not authorized for sharing.')
+      setUrl(result.url)
+      setClaimed(true)
+      return true
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'This card could not be attached to your account.')
+      return false
+    } finally {
+      setClaiming(false)
+    }
+  }
 
   useEffect(() => {
+    const supabase = createSupabaseBrowserClient()
+    void supabase.auth.getUser().then(({ data }) => {
+      if (data.user) void authorizeShare()
+    })
+  }, [])
+
+  useEffect(() => {
+    if (!url) return
     let current = true
     Promise.all([
       QRCode.toString(url, { type: 'svg', errorCorrectionLevel: 'H', margin: 4, width: 1024, color: { dark: '#171514', light: '#ffffff' } }),
@@ -41,6 +91,7 @@ export default function CardDelivery({ url, password, template }: DeliveryProps)
   }, [svg])
 
   const copy = async () => {
+    if (!await authorizeShare() || !url) return
     setCopied(false)
     try {
       await navigator.clipboard.writeText(url)
@@ -52,6 +103,7 @@ export default function CardDelivery({ url, password, template }: DeliveryProps)
   }
 
   const share = async () => {
+    if (!await authorizeShare() || !url) return
     if (!navigator.share) {
       await copy()
       return
@@ -63,6 +115,14 @@ export default function CardDelivery({ url, password, template }: DeliveryProps)
     }
   }
 
+  const printShare = async () => {
+    if (await authorizeShare() && url) window.print()
+  }
+
+  const requestShareAccess = () => {
+    void authorizeShare()
+  }
+
   return (
     <main className={styles.delivery}>
       <section className={styles.intro}>
@@ -70,24 +130,24 @@ export default function CardDelivery({ url, password, template }: DeliveryProps)
         <h1>Your little surprise<br/><i>is ready.</i></h1>
         <p>{password ? 'The recipient will need the password to open the card. Send the link and password separately for privacy.' : 'Your share link is ready. Keep it somewhere you can find it again.'}</p>
         <label className={styles.linkLabel}>PRIVATE SHARE LINK
-          <span className={styles.linkRow}><input readOnly value={url} aria-label="Card share link"/><button type="button" onClick={() => void copy()}>{copied?'Copied!':'Copy link'}</button></span>
+          <span className={styles.linkRow}><input readOnly value={url ?? 'Sign in to unlock the share link'} aria-label="Card share link"/><button type="button" onClick={() => void copy()} disabled={claiming}>{copied?'Copied!':'Copy link'}</button></span>
         </label>
         {password && <div className={styles.passwordBox}><div><span>RECIPIENT PASSWORD</span><strong>{password}</strong></div><small>Share this separately from the QR printout.</small></div>}
         <div className={styles.shareActions}>
-          <button type="button" onClick={() => void share()}>Share link</button>
-          <button type="button" className={styles.secondary} onClick={() => window.print()}>Print card sheet</button>
+          <button type="button" onClick={() => void share()} disabled={claiming}>{claiming ? 'Checking access…' : 'Share link'}</button>
+          <button type="button" className={styles.secondary} onClick={() => void printShare()} disabled={claiming}>Print card sheet</button>
         </div>
         {notice && <p role="status" className={styles.notice}>{notice}</p>}
       </section>
       <section className={styles.qrPanel} aria-label="Share QR code">
         <div className={styles.qrHeading}><span>SCAN TO OPEN</span><strong>{template}</strong></div>
         <div className={styles.qrCode} aria-label="QR code for the card link">
-          {svg ? <div dangerouslySetInnerHTML={{ __html: svg }}/> : <span>Preparing QR…</span>}
+          {svg ? <div dangerouslySetInnerHTML={{ __html: svg }}/> : url ? <span>Preparing QR…</span> : <button type="button" onClick={requestShareAccess} disabled={claiming}>{claiming ? 'Checking access…' : 'Sign in to unlock QR sharing'}</button>}
         </div>
         <p>QR code contains the link only — never the password.</p>
         <div className={styles.downloads}>
-          <a href={png || undefined} download="birthday-card-qr.png" aria-disabled={!png}>Download PNG · 1024px</a>
-          <a href={svgUrl || undefined} download="birthday-card-qr.svg" aria-disabled={!svgUrl}>Download SVG</a>
+          <a href={png || undefined} download="birthday-card-qr.png" aria-disabled={!png || !url} onClick={event => { if (!png || !url) { event.preventDefault(); void authorizeShare() } }}>Download PNG · 1024px</a>
+          <a href={svgUrl || undefined} download="birthday-card-qr.svg" aria-disabled={!svgUrl || !url} onClick={event => { if (!svgUrl || !url) { event.preventDefault(); void authorizeShare() } }}>Download SVG</a>
         </div>
         <fieldset className={styles.printOptions}>
           <legend>PRINT OPTIONS</legend>
@@ -101,7 +161,7 @@ export default function CardDelivery({ url, password, template }: DeliveryProps)
           <span>✦ WISHWELL · {template.toUpperCase()} ✦</span>
           <h2>Scan to open your<br/><i>birthday card.</i></h2>
           {svg && <div className={styles.printQr} dangerouslySetInnerHTML={{ __html: svg }}/>}
-          <p>{url}</p>
+          <p>{url ?? 'Sign in to unlock the share link.'}</p>
           {password && <div className={styles.printPassword}><small>CARD PASSWORD</small><strong>{password}</strong></div>}
           <footer>For a little more birthday magic, made just for you.</footer>
         </article>

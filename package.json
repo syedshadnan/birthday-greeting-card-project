@@ -10,6 +10,8 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
+    "@supabase/ssr": "^0.12.7",
+    "@supabase/supabase-js": "^2.117.2",
     "@types/three": "^0.186.0",
     "bcryptjs": "^3.0.3",
     "next": "latest",

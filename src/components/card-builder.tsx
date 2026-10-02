@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { classicCardThemeChoices, cardLetterMaxLength, cardThemes, type CardConfig, type CardLanguage, type CardTheme } from '../lib/cards/themes'
 import { premiumCardFeatures } from '../lib/cards/features'
+import CardExperience, { type CardPayload } from './card-experience'
+import { defaultBirthdayMusic } from '../lib/cards/music'
 
 const CardDelivery = dynamic(() => import('./premium-cards/delivery'))
 
@@ -175,6 +177,7 @@ async function compressPhoto(file: File) {
 
 export default function CardBuilder({ initialTheme = 'cute', themeChoices = classicCardThemeChoices }: CardBuilderProps) {
   const [step, setStep] = useState(0)
+  const [previewMode, setPreviewMode] = useState(false)
   const [theme, setTheme] = useState<CardTheme>(initialTheme)
   const [language, setLanguage] = useState<CardLanguage>('en')
   const [config, setConfig] = useState<CardConfig>(() => blankConfig('en'))
@@ -188,7 +191,7 @@ export default function CardBuilder({ initialTheme = 'cute', themeChoices = clas
   const [compressing, setCompressing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
-  const [shareUrl, setShareUrl] = useState('')
+  const [shareCardId, setShareCardId] = useState('')
   const [password, setPassword] = useState('')
   const [passwordHint, setPasswordHint] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -202,6 +205,10 @@ export default function CardBuilder({ initialTheme = 'cute', themeChoices = clas
     photosRef.current = photos
   }, [photos])
   useEffect(() => () => photosRef.current.forEach(photo => URL.revokeObjectURL(photo.preview)), [])
+  const previewMusicUrl = useMemo(() => musicFile ? URL.createObjectURL(musicFile) : null, [musicFile])
+  useEffect(() => () => {
+    if (previewMusicUrl) URL.revokeObjectURL(previewMusicUrl)
+  }, [previewMusicUrl])
 
   const updateConfig = <K extends keyof CardConfig>(key: K, value: CardConfig[K]) => {
     setConfig(current => ({ ...current, [key]: value }))
@@ -280,8 +287,7 @@ export default function CardBuilder({ initialTheme = 'cute', themeChoices = clas
       const result: { id?: string; error?: string } = await response.json()
       if (!response.ok || !result.id) throw new Error(result.error || 'Could not save your card.')
 
-      const url = `${window.location.origin}/card/${result.id}`
-      setShareUrl(url)
+      setShareCardId(result.id)
       setStep(4)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not save your card.')
@@ -292,7 +298,31 @@ export default function CardBuilder({ initialTheme = 'cute', themeChoices = clas
 
   const reasons = useMemo(() => config.reasons, [config.reasons])
 
-  if (shareUrl) return <CardDelivery url={shareUrl} password={premiumCardFeatures.password ? password : undefined} template={cardThemes[theme].label}/>
+  if (shareCardId) return <CardDelivery cardId={shareCardId} password={premiumCardFeatures.password ? password : undefined} template={cardThemes[theme].label}/>
+  if (step === 3 && previewMode) {
+    const previewCard: CardPayload = {
+      id: 'builder-preview',
+      recipient: recipient || 'Your favorite person',
+      sender,
+      message: config.letter,
+      musicUrl: musicFile
+        ? previewMusicUrl ?? undefined
+        : config.musicChoice === 'signature'
+          ? defaultBirthdayMusic.url
+          : undefined,
+      musicCredit: !musicFile && config.musicChoice === 'signature',
+      theme,
+      language,
+      fullAccess: true,
+      config: {
+        ...config,
+        language,
+        photos: photos.map(photo => ({ url: photo.preview, caption: photo.caption })),
+        songId: musicFile ? 'custom' : 'none',
+      },
+    }
+    return <CardExperience slug="builder-preview" previewCard={previewCard} onExitPreview={() => { setPreviewMode(false); setStep(2) }} />
+  }
 
   return <main className="builder-page">
     <header className="builder-header"><a className="brand" href="/">✦ wishwell</a><span>All 9 scenes · Free</span></header>
@@ -328,7 +358,7 @@ export default function CardBuilder({ initialTheme = 'cute', themeChoices = clas
           </>}
           {step===3&&<><h2>Read it once more</h2><p>Your complete birthday story is free to create and share.</p><div className={`builder-preview ${cardThemes[theme].className}`}><span>✦ {cardThemes[theme].label} ✦</span><h3>Happy birthday,<br/><i>{recipient||'your favorite person'}</i></h3><p>{config.openingLine||config.letter||'A little birthday wish, made with love.'}</p><small>{sender?'With love, '+sender:'Made with love'}</small></div><div className="builder-summary"><span>{photos.length} photos · {language==='bn'?'বাংলা':'English'}</span><span>{reasons.filter(Boolean).length} reasons</span></div></>}
           {error&&<p className="form-error" role="alert">{error}</p>}
-          <div className="builder-actions">{step>0&&<button type="button" className="button outline" disabled={saving||compressing} onClick={()=>setStep(current=>current-1)}>← Back</button>}{step<3?<button type="button" className="button dark" disabled={saving||compressing||(step===1&&(!recipient.trim()||(premiumCardFeatures.password&&password.length<6)))} onClick={()=>{setError('');setStep(current=>current+1)}}>{step===2?'Preview card':'Continue'} →</button>:<button type="button" className="button dark" disabled={saving||compressing} onClick={()=>void save()}>{saving?'Saving…':'Create my birthday card'}</button>}</div>
+          <div className="builder-actions">{step>0&&<button type="button" className="button outline" disabled={saving||compressing} onClick={()=>setStep(current=>current-1)}>← Back</button>}{step<3?<>{step===2&&<button type="button" className="button outline" disabled={saving||compressing} onClick={()=>{setError('');setPreviewMode(false);setStep(3)}}>Continue to create card →</button>}<button type="button" className="button dark" disabled={saving||compressing||(step===1&&(!recipient.trim()||(premiumCardFeatures.password&&password.length<6)))} onClick={()=>{setError('');if(step===2)setPreviewMode(true);setStep(current=>current+1)}}>{step===2?'Preview card':'Continue'} →</button></>:<button type="button" className="button dark" disabled={saving||compressing} onClick={()=>void save()}>{saving?'Saving…':'Create my birthday card'}</button>}</div>
         </section>
         <aside className={`builder-art ${cardThemes[theme].className}`} aria-label="Live theme preview"><span className="art-orbit" aria-hidden="true">✦</span><span className="art-spark" aria-hidden="true">✧</span><div><small>{cardThemes[theme].label} · LIVE PREVIEW</small><strong>{recipient||'Your person'}</strong><div className="builder-art-details">{config.nickname&&<span>♡ {config.nickname}</span>}{config.age&&<span>✦ {config.age}</span>}{config.date&&<span>✧ {config.date}</span>}{config.relationship&&<span>♥ {config.relationship}</span>}</div>{config.openingLine&&<em>{config.openingLine}</em>}{config.letter&&<p className="builder-art-letter">{config.letter}</p>}<span className="builder-art-counts">{photos.length} photos · {(config.memories??[]).filter(memory=>memory.text.trim()).length} memories · {reasons.filter(Boolean).length} wishes</span></div><span className="art-watermark">a little wishwell magic</span></aside>
       </div>
