@@ -16,6 +16,7 @@ export default async function AccountPage() {
   const ready = cards.filter(card => card.payment_status === 'paid' && Boolean(card.share_enabled_at)).length
   const pending = cards.filter(card => card.payment_status === 'pending' || card.payment_status === 'submitted').length
   const locked = cards.filter(card => !(card.payment_status === 'paid' && Boolean(card.share_enabled_at))).length
+  const cardThemes = ['rose', 'peach', 'sky', 'ink', 'lime', 'party']
 
   return (
     <main className="account-dashboard">
@@ -43,9 +44,10 @@ export default async function AccountPage() {
             {cards.map(card => {
               const shared = card.payment_status === 'paid' && Boolean(card.share_enabled_at)
               const paymentLabel = shared ? 'Paid / Ready' : card.payment_status === 'pending' || card.payment_status === 'submitted' ? 'Pending' : 'Locked'
+              const theme = cardThemes[card.public_id.split('').reduce((sum, character) => sum + character.charCodeAt(0), 0) % cardThemes.length]
               return <article className="account-card-premium" key={card.public_id}>
-                <div className="account-card-art"><span>{(card.recipient_name || 'Birthday').slice(0, 1).toUpperCase()}</span><small>{card.status}</small></div>
-                <div className="account-card-content"><div className="account-card-title-row"><h3>{card.recipient_name || 'Untitled birthday card'}</h3><span className={`account-status-badge ${shared ? 'paid' : card.payment_status === 'pending' || card.payment_status === 'submitted' ? 'pending' : 'locked'}`}>{paymentLabel}</span></div><p className="account-card-date">Created {new Date(card.created_at).toLocaleDateString()}</p><AccountCardActions cardId={card.public_id} paymentStatus={card.payment_status} shareEnabled={shared} /></div>
+                <div className={`account-card-art ${theme}`}><span className="account-card-art-mark" aria-hidden="true">✦</span><div><small>PERSONALIZED GREETING</small><strong>{card.recipient_name || 'Birthday card'}</strong></div><i aria-hidden="true" /></div>
+                <div className="account-card-content"><div className="account-card-title-row"><div><span className="account-card-kicker">BIRTHDAY CARD</span><h3>For {card.recipient_name || 'someone special'}</h3></div><span className={`account-status-badge ${shared ? 'paid' : card.payment_status === 'pending' || card.payment_status === 'submitted' ? 'pending' : 'locked'}`}>{paymentLabel}</span></div><p className="account-card-date">Created {new Date(card.created_at).toLocaleDateString()}</p><AccountCardActions cardId={card.public_id} paymentStatus={card.payment_status} shareEnabled={shared} /></div>
               </article>
             })}
           </div>

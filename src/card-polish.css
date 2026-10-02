@@ -138,15 +138,55 @@ body {
 .account-card-art small { position: absolute; top: 14px; right: 14px; padding: 5px 8px; border-radius: 999px; background: #fffdf8b8; color: #68717f; font: 9px 'DM Mono'; text-transform: uppercase; }
 .account-card-content { padding: 18px; }
 .account-card-title-row { display: flex; align-items: start; justify-content: space-between; gap: 10px; }
+.account-card-kicker { display: block; margin-bottom: 5px; color: #a44f46; font: 9px 'DM Mono'; letter-spacing: 1px; }
 .account-card-title-row h3 { margin: 0; font: 500 22px 'Playfair Display'; overflow-wrap: anywhere; }
 .account-card-date { margin: 6px 0 16px; color: #68717f; font-size: 12px; }
 .account-status-badge { flex: 0 0 auto; padding: 5px 8px; border-radius: 999px; font: 9px 'DM Mono'; text-transform: uppercase; }
 .account-status-badge.paid { background: #e4efdd; color: #395c36; }
 .account-status-badge.pending { background: #f4ecd9; color: #65552f; }
 .account-status-badge.locked { background: #f8e4df; color: #863d37; }
-.account-card-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.account-card-actions { display: flex; min-height: 78px; flex-direction: column; justify-content: flex-end; gap: 10px; }
+.account-card-action-row { display: flex; flex-wrap: wrap; gap: 8px; }
 .account-card-actions .button { padding: 9px 12px; font-size: 12px; }
 .account-card-actions p { width: 100%; margin: 0; color: #68717f; font-size: 12px; line-height: 1.45; }
+.account-card-copy { align-self: flex-start; padding: 0; border: 0; background: none; color: #a44f46; font-size: 11px; cursor: pointer; }
+.account-card-locked-actions { display: flex; flex-direction: column; gap: 10px; }
+.account-card-art { aspect-ratio: 16 / 10; min-height: 0; overflow: hidden; position: relative; flex-direction: column; text-align: center; }
+.account-card-art > div { position: relative; z-index: 1; display: flex; flex-direction: column; gap: 8px; }
+.account-card-art > div small { color: currentColor; font: 9px 'DM Mono'; letter-spacing: 1.4px; opacity: .72; }
+.account-card-art > div strong { font: 500 clamp(25px,3vw,36px) 'Playfair Display'; letter-spacing: -.8px; }
+.account-card-art-mark { position: absolute; top: 16px; left: 20px; z-index: 1; font-size: 17px; opacity: .7; }
+.account-card-art i { position: absolute; width: 170px; height: 170px; right: -60px; bottom: -85px; border: 1px solid currentColor; border-radius: 50%; opacity: .25; }
+.account-card-art:after { content: ''; position: absolute; inset: 13px; border: 1px solid currentColor; border-radius: 3px; opacity: .22; }
+.account-card-art.rose { background: radial-gradient(circle at 20% 20%,#fff2dd80 0 4px,transparent 5px),linear-gradient(135deg,#eeb6ac,#f3d3b4); color: #704253; }
+.account-card-art.peach { background: radial-gradient(circle at 78% 25%,#fff8df90 0 5px,transparent 6px),linear-gradient(135deg,#f3bd82,#f8dfb4); color: #754332; }
+.account-card-art.sky { background: radial-gradient(circle at 18% 70%,#fff9e880 0 3px,transparent 4px),linear-gradient(135deg,#a6cbd0,#dce9d2); color: #315760; }
+.account-card-art.ink { background: radial-gradient(circle at 80% 20%,#f7d89970 0 3px,transparent 4px),linear-gradient(135deg,#343249,#65566d); color: #f8dda9; }
+.account-card-art.lime { background: radial-gradient(circle at 22% 28%,#fff9d090 0 4px,transparent 5px),linear-gradient(135deg,#c5ce82,#e9e2ad); color: #41472d; }
+.account-card-art.party { background: radial-gradient(circle at 18% 20%,#f4cd8c 0 7px,transparent 8px),radial-gradient(circle at 84% 75%,#a9cfc1 0 9px,transparent 10px),linear-gradient(135deg,#d99abd,#edc39e); color: #50344f; }
+.auth-page { min-height: calc(100svh - 70px); display: grid; place-items: center; padding: 54px 20px 80px; }
+.auth-brand { position: absolute; top: 28px; }
+.auth-card { width: min(100%, 520px); padding: 42px; border: 1px solid var(--line); border-radius: 20px; background: #fffdf9e8; box-shadow: 0 24px 70px #302d4312; }
+.auth-card h1 { margin: 11px 0 8px; font: 500 clamp(35px,6vw,48px) 'Playfair Display'; letter-spacing: -1.5px; }
+.auth-subtitle { margin: 0 0 27px; color: #68717f; line-height: 1.55; }
+.google-button { display: flex; width: 100%; min-height: 50px; align-items: center; justify-content: center; gap: 11px; border: 1px solid #d8cebd; border-radius: 9px; background: white; color: var(--ink); font: 600 14px inherit; cursor: pointer; transition: box-shadow .18s,transform .18s,border-color .18s; }
+.google-button svg { width: 19px; height: 19px; }
+.google-button:hover:not(:disabled) { border-color: #bbaa94; box-shadow: 0 7px 18px #302d4312; transform: translateY(-1px); }
+.google-button:focus-visible,.auth-card button:focus-visible { outline: 3px solid #d56954; outline-offset: 3px; }
+.auth-divider { display: flex; align-items: center; gap: 12px; margin: 25px 0 20px; color: #9b9287; font: 10px 'DM Mono'; text-transform: uppercase; letter-spacing: .7px; }
+.auth-divider:before,.auth-divider:after { content: ''; height: 1px; flex: 1; background: var(--line); }
+.auth-card form > label { display: block; margin-top: 15px; color: #555f70; font: 11px 'DM Mono'; letter-spacing: .4px; }
+.auth-card form > label span { color: #9b9287; }
+.auth-card input { width: 100%; box-sizing: border-box; min-height: 50px; margin-top: 8px; padding: 0 14px; border: 1px solid #d8cebd; border-radius: 9px; background: #fffdf8; color: var(--ink); font: inherit; transition: border-color .18s,box-shadow .18s; }
+.auth-card input:focus { outline: none; border-color: #cb7665; box-shadow: 0 0 0 3px #cb766524; }
+.auth-password-field { position: relative; }
+.auth-password-field input { padding-right: 70px; }
+.auth-password-field button { position: absolute; top: 8px; right: 8px; height: 34px; padding: 0 8px; border: 0; background: transparent; color: #a44f46; font: 11px 'DM Mono'; cursor: pointer; }
+.auth-submit { width: 100%; margin-top: 22px; }
+.auth-error { display: flex; flex-direction: column; gap: 4px; margin: 18px 0 0; padding: 12px 14px; border-left: 3px solid #cf513f; border-radius: 6px; background: #fff0eb; color: #873c35; font-size: 13px; line-height: 1.4; }
+.auth-error strong { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; }
+.auth-switch { margin: 25px 0 0; color: #68717f; text-align: center; font-size: 13px; }
+.auth-switch button { padding: 0; border: 0; background: none; color: #a44f46; font-weight: 700; cursor: pointer; }
 .account-empty-state { padding: 58px 24px; border: 1px dashed #d8cebd; border-radius: 16px; background: #fffdf8; text-align: center; }
 .account-empty-icon { display: grid; width: 48px; height: 48px; margin: 0 auto 14px; place-items: center; border-radius: 50%; background: #f4ecd9; color: #a44f46; font-size: 22px; }
 .account-empty-state h3 { margin: 0 0 7px; font: 500 25px 'Playfair Display'; }
@@ -221,6 +261,9 @@ body {
     .account-card-grid { grid-template-columns: 1fr; }
     .account-section-heading { align-items: start; flex-direction: column; gap: 4px; }
     .account-card-title-row { flex-direction: column; }
+    .auth-page { min-height: calc(100svh - 55px); padding: 48px 16px 50px; }
+    .auth-brand { top: 18px; }
+    .auth-card { padding: 30px 22px; border-radius: 16px; }
   }
   .admin-heading { align-items: start; flex-direction: column; }
   .admin-payment { padding: 18px; }

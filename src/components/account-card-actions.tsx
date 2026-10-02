@@ -25,16 +25,12 @@ export default function AccountCardActions({ cardId, paymentStatus, shareEnabled
     <div className="account-card-actions">
       {shareEnabled ? (
         <>
-          <a className="button outline" href={`/card/${cardId}`}>View card</a>
-          <a className="button outline" href={`/share/${cardId}`}>Share</a>
-          <button className="button outline" type="button" onClick={() => void copyLink()}>Copy link</button>
+          <div className="account-card-action-row"><a className="button outline" href={`/card/${cardId}`}>View card</a><a className="button dark" href={`/share/${cardId}`}>Share card</a></div>
+          <button className="account-card-copy" type="button" onClick={() => void copyLink()}>Copy link</button>
         </>
-      ) : <div>
-        <a className="button outline" href={`/card/${cardId}`}>View card</a>
-        {paymentStatus === 'none' && <><p>Verified payment is required before sharing this card.</p><a className="button outline" href={`/payment/premium?cardId=${cardId}`}>Pay 99 BDT to unlock sharing</a></>}
-        {paymentStatus === 'pending' && <><p>Payment pending.</p><a className="button outline" href={`/payment/premium?cardId=${cardId}`}>Continue payment</a></>}
-        {paymentStatus === 'submitted' && <><p>Payment submitted — awaiting verification.</p><a className="button outline" href={`/payment/premium?cardId=${cardId}`}>View payment status</a></>}
-        {paymentStatus === 'paid' && <><p>Payment verified. Sharing is ready to be authorized.</p><a className="button outline" href={`/share/${cardId}`}>Unlock sharing</a></>}
+      ) : <div className="account-card-locked-actions">
+        <p>{paymentStatus === 'submitted' ? 'Payment submitted — awaiting verification.' : paymentStatus === 'pending' ? 'Payment is pending. Complete payment to continue.' : 'Verified payment is required before sharing this card.'}</p>
+        <div className="account-card-action-row"><a className="button outline" href={`/card/${cardId}`}>View card</a>{paymentStatus === 'none' && <a className="button dark" href={`/payment/premium?cardId=${cardId}`}>Pay 99 BDT</a>}{paymentStatus === 'pending' && <a className="button dark" href={`/payment/premium?cardId=${cardId}`}>Continue payment</a>}{paymentStatus === 'submitted' && <a className="button dark" href={`/payment/premium?cardId=${cardId}`}>View payment status</a>}</div>
       </div>}
       {notice && <span role="status">{notice}</span>}
     </div>
