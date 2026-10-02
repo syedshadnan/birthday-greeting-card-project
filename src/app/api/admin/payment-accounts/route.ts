@@ -12,7 +12,7 @@ async function requireAdmin(request?: NextRequest) {
 
 export async function GET(request: NextRequest) {
   if (!await requireAdmin(request)) return NextResponse.json({ error: 'Admin access is required.' }, { status: 403 })
-  const response = await supabaseRequest('/rest/v1/payment_accounts?select=id,method,account_number,label,is_active,created_at,updated_at&order=method.asc,created_at.desc')
+  const response = await supabaseRequest('/rest/v1/payment_accounts?select=id,method,account_number,label,is_active,webhook_source,provider_account_number,created_at,updated_at&order=method.asc,created_at.desc')
   return NextResponse.json({ accounts: await response.json() })
 }
 
@@ -21,12 +21,17 @@ export async function POST(request: Request) {
   if (!await requireAdmin(request as NextRequest)) return NextResponse.json({ error: 'Admin access is required.' }, { status: 403 })
 
   const body = await request.json().catch(() => null) as Record<string, unknown> | null
-  if (!body || Object.keys(body).some(key => !['method', 'accountNumber', 'label', 'isActive'].includes(key))) {
+  if (!body || Object.keys(body).some(key => !['method', 'accountNumber', 'label', 'isActive', 'webhookSource', 'providerAccountNumber'].includes(key))) {
     return NextResponse.json({ error: 'Payment account details are invalid.' }, { status: 400 })
   }
   const accountNumber = normalizeBangladeshPhone(body.accountNumber)
   if (!isPaymentMethod(body.method) || !accountNumber) {
     return NextResponse.json({ error: 'Choose a supported method and valid Bangladesh number.' }, { status: 400 })
+  }
+  const webhookSource = typeof body.webhookSource === 'string' ? body.webhookSource.trim() : ''
+  const providerAccountNumber = typeof body.providerAccountNumber === 'string' ? body.providerAccountNumber.trim() : ''
+  if (webhookSource.length > 100 || providerAccountNumber.length > 100) {
+    return NextResponse.json({ error: 'Trust metadata must be 100 characters or fewer.' }, { status: 400 })
   }
 
   const user = (await import('../../../../lib/auth')).getCurrentUser
@@ -40,6 +45,8 @@ export async function POST(request: Request) {
       label: typeof body.label === 'string' ? body.label.trim().slice(0, 80) || null : null,
       is_active: body.isActive === true,
       created_by: currentUser?.id ?? null,
+      webhook_source: webhookSource || null,
+      provider_account_number: providerAccountNumber || null,
     }),
   })
   return NextResponse.json({ accounts: await response.json() }, { status: 201 })

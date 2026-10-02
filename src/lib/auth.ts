@@ -86,7 +86,7 @@ export async function getCurrentOwnedCards(): Promise<{ cards: OwnedCard[]; erro
   }
 
   return {
-    cards: cards.map(card => ({ ...card, payment_status: statusByCard.get(card.public_id) ?? 'none' })),
+    cards: cards.map(card => ({ ...card, payment_status: statusByCard.get(card.id) ?? 'none' })),
     error: null,
   }
 }

@@ -27,7 +27,25 @@ type PendingOrder = {
   card: { public_id: string; recipient_name: string | null } | null
   payment_account: { account_number: string } | null
   customer: { email: string | null; full_name: string | null }
+  cleanup: { eligible: boolean; reason: string }
 }
+type Verification = {
+  id: string
+  verification_status: string
+  reason_code: string
+  reason: string
+  provider: string | null
+  amount_bdt: number | null
+  sender_phone: string | null
+  transaction_id: string | null
+  provider_timestamp: string | null
+  trusted_source: string | null
+  trusted_receiving_account: string | null
+  event: { raw_message: string | null; received_at: string; processed_at: string | null } | null
+  order: { id: string; payment_method: string; customer_phone: string; amount_bdt: number; status: string } | null
+}
+type AccountSummary = { method: 'bkash' | 'nagad'; account_number: string; is_active: boolean }
+type AdminSection = 'home' | 'accounts' | 'verification' | 'orders' | 'legacy' | 'audit' | 'cards'
 
 const pageSize = 50
 
@@ -50,6 +68,12 @@ export default function AdminDashboard() {
   const [loggingIn, setLoggingIn] = useState(false)
   const [orders, setOrders] = useState<PendingOrder[]>([])
   const [loadingOrders, setLoadingOrders] = useState(false)
+  const [verifications, setVerifications] = useState<Verification[]>([])
+  const [loadingVerifications, setLoadingVerifications] = useState(false)
+  const [selectedOrders, setSelectedOrders] = useState<string[]>([])
+  const [cleaningOrders, setCleaningOrders] = useState(false)
+  const [accountSummaries, setAccountSummaries] = useState<AccountSummary[]>([])
+  const [activeSection, setActiveSection] = useState<AdminSection>('home')
 
   const loadCards = useCallback(async (nextOffset: number) => {
     setLoadingCards(true)
@@ -66,6 +90,21 @@ export default function AdminDashboard() {
       setOffset(nextOffset)
     } finally {
       setLoadingCards(false)
+    }
+  }, [])
+
+  const loadVerifications = useCallback(async () => {
+    setLoadingVerifications(true)
+    try {
+      const response = await fetch('/api/admin/verifications', { cache: 'no-store' })
+      const result: { verifications?: Verification[]; error?: string } = await response.json()
+      if (response.status === 401) { setAuthenticated(false); return }
+      if (!response.ok) throw new Error(result.error || 'Could not load verification evidence.')
+      setVerifications(result.verifications ?? [])
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not load verification evidence.')
+    } finally {
+      setLoadingVerifications(false)
     }
   }, [])
 
@@ -102,8 +141,27 @@ export default function AdminDashboard() {
     if (authenticated) {
       loadCards(0).catch(cause => setError(cause instanceof Error ? cause.message : 'Could not load generated cards.'))
       void loadOrders()
+      void loadVerifications()
+      fetch('/api/admin/payment-accounts', { cache: 'no-store' }).then(async response => {
+        const result: { accounts?: AccountSummary[] } = await response.json()
+        if (response.ok) setAccountSummaries(result.accounts ?? [])
+      }).catch(() => setAccountSummaries([]))
     }
-  }, [authenticated, loadCards, loadOrders])
+  }, [authenticated, loadCards, loadOrders, loadVerifications])
+
+  useEffect(() => {
+    const validSections: AdminSection[] = ['home', 'accounts', 'verification', 'orders', 'legacy', 'audit', 'cards']
+    const syncSection = () => {
+      const section = new URLSearchParams(window.location.search).get('section')
+      setActiveSection(section && validSections.includes(section as AdminSection) ? section as AdminSection : 'home')
+    }
+    syncSection()
+    if (!window.location.search && !window.history.state?.adminSection) {
+      window.history.replaceState({ adminSection: 'home' }, '', '/admin')
+    }
+    window.addEventListener('popstate', syncSection)
+    return () => window.removeEventListener('popstate', syncSection)
+  }, [])
 
   const signIn = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -155,9 +213,44 @@ export default function AdminDashboard() {
       setCards([])
       setTotal(0)
       setOrders([])
+      setVerifications([])
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not sign out.')
     }
+  }
+
+  const deleteSelectedOrders = async () => {
+      const eligible = orders.filter(order => selectedOrders.includes(order.id) && order.cleanup.eligible)
+      if (!eligible.length) {
+        setError('Select at least one eligible pending test order.')
+        return
+      }
+      if (!window.confirm(`Delete exactly these pending test order(s)?\n\n${eligible.map(order => order.id).join('\n')}\n\nOrders with evidence, paid orders, and all webhook/payment evidence will be protected.`)) return
+      setCleaningOrders(true)
+      setError('')
+      try {
+        const response = await fetch('/api/admin/orders', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ orderIds: eligible.map(order => order.id) }),
+        })
+        const result: { error?: string; blockedOrderIds?: string[] } = await response.json()
+        if (!response.ok) throw new Error(result.error || 'Selected orders could not be deleted.')
+        setSelectedOrders([])
+        await loadOrders()
+      } catch (cause) {
+        setError(cause instanceof Error ? cause.message : 'Selected orders could not be deleted.')
+      } finally {
+        setCleaningOrders(false)
+      }
+    }
+
+  const overview = {
+    paid: verifications.filter(item => item.verification_status === 'verified').length,
+    pending: orders.length,
+    review: verifications.filter(item => item.verification_status === 'needs_review').length,
+    unmatchedInvalid: verifications.filter(item => item.verification_status === 'unmatched' || item.verification_status === 'invalid').length,
+    revenue: verifications.filter(item => item.verification_status === 'verified').reduce((sum, item) => sum + (item.amount_bdt ?? 0), 0),
   }
 
   if (checking) return <main className="payment-page"><p>Checking admin sign-in…</p></main>
@@ -174,12 +267,77 @@ export default function AdminDashboard() {
     </form>
   </main></>
 
+  const sectionLabels: Record<Exclude<AdminSection, 'home'>, string> = {
+    accounts: 'Payment Accounts',
+    verification: 'Payment Verification',
+    orders: 'Pending Orders',
+    legacy: 'Legacy Payments',
+    audit: 'Audit / Security Logs',
+    cards: 'Cards',
+  }
+  const openSection = (section: AdminSection) => {
+    const query = section === 'home' ? '' : `?section=${section}`
+    window.history.pushState({ adminSection: section }, '', `/admin${query}`)
+    setActiveSection(section)
+  }
+  const backToDashboard = () => {
+    if (window.history.state?.adminSection === activeSection) {
+      window.history.back()
+      return
+    }
+    window.location.assign('/admin')
+  }
+
   return <><nav><a className="brand" href="/">✦ wishwell</a><button className="upload" onClick={()=>void signOut()}>Sign out</button></nav>
     <main className="admin-page">
-      <AdminPaymentAccounts />
-      <section className="admin-payments">
+      {activeSection !== 'home' && <header className="admin-section-header">
+        <button className="button outline admin-back" type="button" onClick={backToDashboard}>← Back to Admin Dashboard</button>
+        <div className="admin-breadcrumb" aria-label="Breadcrumb"><span>Admin Dashboard</span><b>/</b><strong>{sectionLabels[activeSection]}</strong></div>
+      </header>}
+      {activeSection === 'home' && <section className="admin-section admin-overview">
+        <div className="admin-heading"><div><span className="eyebrow">OVERVIEW</span><h1>Payment <i>control room.</i></h1><p>Verification evidence, payment attempts, and trusted receiving accounts in one place.</p></div></div>
+        <div className="admin-summary-grid">
+          <div className="admin-summary-card"><span>Verified revenue</span><strong>{overview.revenue} BDT</strong></div>
+          <div className="admin-summary-card"><span>Verified bKash</span><strong>{verifications.filter(item => item.verification_status === 'verified' && item.provider === 'bkash').reduce((sum, item) => sum + (item.amount_bdt ?? 0), 0)} BDT</strong></div>
+          <div className="admin-summary-card"><span>Verified Nagad</span><strong>{verifications.filter(item => item.verification_status === 'verified' && item.provider === 'nagad').reduce((sum, item) => sum + (item.amount_bdt ?? 0), 0)} BDT</strong></div>
+          <div className="admin-summary-card"><span>Pending verification</span><strong>{overview.review + overview.pending}</strong></div>
+          <div className="admin-summary-card"><span>Active bKash</span><strong>{accountSummaries.find(account => account.method === 'bkash' && account.is_active)?.account_number ?? 'Not configured'}</strong></div>
+          <div className="admin-summary-card"><span>Active Nagad</span><strong>{accountSummaries.find(account => account.method === 'nagad' && account.is_active)?.account_number ?? 'Not configured'}</strong></div>
+        </div>
+        <div className="admin-nav-grid">
+          {([['accounts', 'Payment Accounts', 'Manage active and historical receiving numbers.'], ['verification', 'Payment Verification', 'Review evidence and server-produced outcomes.'], ['orders', 'Pending Orders', 'Inspect payment attempts awaiting verification.'], ['legacy', 'Legacy Payments', 'View preserved historical payment records.'], ['audit', 'Audit / Security Logs', 'Review protected administrative evidence.'], ['cards', 'Cards', 'Manage generated birthday cards.']] as const).map(([id, title, description]) => <button className="admin-nav-card" type="button" key={id} onClick={() => openSection(id)}><strong>{title}</strong><span>{description}</span><b>Open →</b></button>)}
+        </div>
+      </section>}
+      {activeSection === 'accounts' && <AdminPaymentAccounts />}
+      {activeSection === 'verification' && <section className="admin-payments">
+        <div className="admin-heading"><div><span className="eyebrow">PHASE 9 VERIFICATION</span><h2>Webhook evidence</h2><p>Permanent evidence and server-produced verification outcomes. Unsupported or untrusted events are never auto-approved.</p></div><button className="button outline" type="button" disabled={loadingVerifications} onClick={() => void loadVerifications()}>{loadingVerifications ? 'Loading…' : 'Refresh'}</button></div>
+        {!verifications.length ? <div className="payment-box"><p>{loadingVerifications ? 'Loading verification evidence…' : 'No webhook verification evidence.'}</p></div> : <div className="admin-payments">{verifications.map(item => {
+          const label = item.verification_status === 'verified' ? '✅ AUTO VERIFIED / PAID' : item.verification_status === 'duplicate' ? '♻️ DUPLICATE' : item.verification_status === 'invalid' ? '❌ INVALID' : item.verification_status === 'unmatched' ? '⚠️ UNMATCHED' : '⚠️ NEEDS REVIEW'
+          return <article className="admin-payment" key={item.id}>
+            <div className="admin-payment-heading"><div><span className="eyebrow">{label}</span><h3>{item.reason_code}</h3><p>{item.reason}</p></div><span className="payment-status">{item.verification_status}</span></div>
+            <dl>
+              <div><dt>Raw SMS</dt><dd>{item.event?.raw_message || 'Unavailable'}</dd></div>
+              <div><dt>Provider / amount</dt><dd>{item.provider || 'Unknown'} / {item.amount_bdt ?? 'Unknown'} BDT</dd></div>
+              <div><dt>Customer phone</dt><dd>{item.sender_phone || 'Unknown'}</dd></div>
+              <div><dt>Transaction ID</dt><dd>{item.transaction_id || 'Missing'}</dd></div>
+              <div><dt>SMS timestamp</dt><dd>{item.provider_timestamp || 'Unknown'}</dd></div>
+              <div><dt>Trusted source / receiving account</dt><dd>{item.trusted_source || 'Unknown'} / {item.trusted_receiving_account || 'Unknown'}</dd></div>
+              <div><dt>Matched order</dt><dd>{item.order ? `${item.order.id} · ${item.order.payment_method} · ${item.order.customer_phone} · ${item.order.amount_bdt} BDT · ${item.order.status}` : 'None'}</dd></div>
+              <div><dt>Received / processed</dt><dd>{item.event ? `${displayDate(item.event.received_at)} / ${item.event.processed_at ? displayDate(item.event.processed_at) : 'Not processed'}` : 'Unknown'}</dd></div>
+            </dl>
+            {item.verification_status === 'needs_review' && item.order && <button className="button outline" type="button" onClick={() => {
+              const reason = window.prompt('Enter the evidence supporting this approval (minimum 10 characters).')
+              if (!reason) return
+              void fetch('/api/admin/verifications', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ verificationId: item.id, reason }) }).then(() => void loadVerifications())
+            }}>Approve with evidence</button>}
+          </article>
+        })}</div>}
+      </section>}
+      {activeSection === 'orders' && <section className="admin-section admin-payments">
         <div className="admin-heading"><div><span className="eyebrow">PHASE 7 PAYMENTS</span><h2>Pending orders</h2><p>Payment attempts awaiting trusted verification. No payment status can be changed here.</p></div><button className="button outline" type="button" disabled={loadingOrders} onClick={() => void loadOrders()}>{loadingOrders ? 'Loading…' : 'Refresh'}</button></div>
+        {orders.some(order => order.cleanup.eligible) && <div className="admin-cleanup-bar"><p>Selected cleanup is limited to pending orders with no verification, audit, or webhook evidence.</p><button className="button outline" type="button" disabled={cleaningOrders || !selectedOrders.length} onClick={() => void deleteSelectedOrders()}>{cleaningOrders ? 'Deleting…' : 'Delete selected test orders'}</button></div>}
         {!orders.length ? <div className="payment-box"><p>{loadingOrders ? 'Loading pending orders…' : 'No pending orders.'}</p></div> : <div className="admin-payments">{orders.map(order => <article className="admin-payment" key={order.id}>
+          <label className="admin-order-select"><input type="checkbox" checked={selectedOrders.includes(order.id)} disabled={!order.cleanup.eligible} onChange={event => setSelectedOrders(current => event.target.checked ? [...current, order.id] : current.filter(id => id !== order.id))}/><span>{order.cleanup.eligible ? 'Eligible test-order cleanup' : `Protected: ${order.cleanup.reason}`}</span></label>
           <div className="admin-payment-heading"><div><span className="eyebrow">{order.payment_method} · pending</span><h3>{order.card?.recipient_name || 'Unknown card'}</h3><p>{order.customer.full_name || order.customer.email || order.user_id}</p></div><span className="payment-status">{order.amount_bdt} {order.currency}</span></div>
           <dl>
             <div><dt>Order ID</dt><dd>{order.id}</dd></div>
@@ -189,7 +347,10 @@ export default function AdminDashboard() {
             <div><dt>Created</dt><dd>{displayDate(order.created_at)}</dd></div>
           </dl>
         </article>)}</div>}
-      </section>
+      </section>}
+      {activeSection === 'legacy' && <section className="admin-section admin-legacy"><div className="admin-section-heading"><div><span className="eyebrow">LEGACY PAYMENTS</span><h2>Historical records</h2><p>Legacy payment records are preserved and are not modified by this dashboard.</p></div></div><div className="payment-box"><p>Legacy payment management remains read-only/disabled. Historical records are retained.</p></div></section>}
+      {activeSection === 'audit' && <section className="admin-section admin-legacy"><div className="admin-section-heading"><div><span className="eyebrow">AUDIT / SECURITY LOGS</span><h2>Protected evidence</h2><p>Administrative approval audit records remain protected on the server and are not editable from this dashboard.</p></div></div><div className="payment-box"><p>Audit records are retained with payment evidence. No deletion or mutation actions are available here.</p></div></section>}
+      {activeSection === 'cards' && <section className="admin-section admin-cards-section">
       <div className="admin-heading"><div><span className="eyebrow">PRIVATE ADMIN AREA</span><h1>Generated <i>cards.</i></h1><p>Review each card, check when it expires, or permanently delete its database record and uploaded assets.</p></div></div>
       {error&&<p className="form-error" role="alert">{error}</p>}
       <div className="admin-cards-toolbar">
@@ -218,6 +379,7 @@ export default function AdminDashboard() {
         <span>{total ? `${offset+1}–${Math.min(offset+cards.length,total)} of ${total}` : '0 cards'}</span>
         <button className="button outline" type="button" disabled={loadingCards||offset+cards.length>=total} onClick={()=>void loadCards(offset+pageSize)}>Next →</button>
       </div>
+      </section>}
     </main>
   </>
 }
