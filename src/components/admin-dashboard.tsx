@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import AdminPaymentAccounts from './admin-payment-accounts'
 
 type AdminCard = {
   id: string
@@ -13,6 +14,19 @@ type AdminCard = {
   created_at: string
   expires_at: string
   card_photos: { image_url: string; sort_order: number }[]
+}
+type PendingOrder = {
+  id: string
+  user_id: string
+  amount_bdt: number
+  currency: string
+  payment_method: string
+  customer_phone: string
+  payment_submitted_at: string | null
+  created_at: string
+  card: { public_id: string; recipient_name: string | null } | null
+  payment_account: { account_number: string } | null
+  customer: { email: string | null; full_name: string | null }
 }
 
 const pageSize = 50
@@ -34,6 +48,8 @@ export default function AdminDashboard() {
   const [error, setError] = useState('')
   const [busyId, setBusyId] = useState('')
   const [loggingIn, setLoggingIn] = useState(false)
+  const [orders, setOrders] = useState<PendingOrder[]>([])
+  const [loadingOrders, setLoadingOrders] = useState(false)
 
   const loadCards = useCallback(async (nextOffset: number) => {
     setLoadingCards(true)
@@ -53,6 +69,24 @@ export default function AdminDashboard() {
     }
   }, [])
 
+  const loadOrders = useCallback(async () => {
+    setLoadingOrders(true)
+    try {
+      const response = await fetch('/api/admin/orders', { cache: 'no-store' })
+      const result: { orders?: PendingOrder[]; error?: string } = await response.json()
+      if (response.status === 401) {
+        setAuthenticated(false)
+        return
+      }
+      if (!response.ok) throw new Error(result.error || 'Could not load pending orders.')
+      setOrders(result.orders ?? [])
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not load pending orders.')
+    } finally {
+      setLoadingOrders(false)
+    }
+  }, [])
+
   useEffect(() => {
     fetch('/api/admin/session')
       .then(async response => {
@@ -67,8 +101,9 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (authenticated) {
       loadCards(0).catch(cause => setError(cause instanceof Error ? cause.message : 'Could not load generated cards.'))
+      void loadOrders()
     }
-  }, [authenticated, loadCards])
+  }, [authenticated, loadCards, loadOrders])
 
   const signIn = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -119,6 +154,7 @@ export default function AdminDashboard() {
       setAuthenticated(false)
       setCards([])
       setTotal(0)
+      setOrders([])
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not sign out.')
     }
@@ -140,6 +176,20 @@ export default function AdminDashboard() {
 
   return <><nav><a className="brand" href="/">✦ wishwell</a><button className="upload" onClick={()=>void signOut()}>Sign out</button></nav>
     <main className="admin-page">
+      <AdminPaymentAccounts />
+      <section className="admin-payments">
+        <div className="admin-heading"><div><span className="eyebrow">PHASE 7 PAYMENTS</span><h2>Pending orders</h2><p>Payment attempts awaiting trusted verification. No payment status can be changed here.</p></div><button className="button outline" type="button" disabled={loadingOrders} onClick={() => void loadOrders()}>{loadingOrders ? 'Loading…' : 'Refresh'}</button></div>
+        {!orders.length ? <div className="payment-box"><p>{loadingOrders ? 'Loading pending orders…' : 'No pending orders.'}</p></div> : <div className="admin-payments">{orders.map(order => <article className="admin-payment" key={order.id}>
+          <div className="admin-payment-heading"><div><span className="eyebrow">{order.payment_method} · pending</span><h3>{order.card?.recipient_name || 'Unknown card'}</h3><p>{order.customer.full_name || order.customer.email || order.user_id}</p></div><span className="payment-status">{order.amount_bdt} {order.currency}</span></div>
+          <dl>
+            <div><dt>Order ID</dt><dd>{order.id}</dd></div>
+            <div><dt>Customer wallet</dt><dd>{order.customer_phone}</dd></div>
+            <div><dt>Receiving account</dt><dd>{order.payment_account?.account_number || 'Unavailable'}</dd></div>
+            <div><dt>Submitted</dt><dd>{order.payment_submitted_at ? displayDate(order.payment_submitted_at) : 'Not submitted'}</dd></div>
+            <div><dt>Created</dt><dd>{displayDate(order.created_at)}</dd></div>
+          </dl>
+        </article>)}</div>}
+      </section>
       <div className="admin-heading"><div><span className="eyebrow">PRIVATE ADMIN AREA</span><h1>Generated <i>cards.</i></h1><p>Review each card, check when it expires, or permanently delete its database record and uploaded assets.</p></div></div>
       {error&&<p className="form-error" role="alert">{error}</p>}
       <div className="admin-cards-toolbar">

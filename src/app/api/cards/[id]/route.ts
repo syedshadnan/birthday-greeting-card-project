@@ -12,7 +12,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 
   try {
     const response = await supabaseRequest(
-      `/rest/v1/cards?public_id=eq.${id}&status=in.(draft,published)&select=public_id,template_slug,theme,language,card_config,recipient_name,sender_name,message,music_url,expires_at,password_salt,password_hash,password_hint,share_enabled_at,card_photos(image_url,sort_order)&limit=1`,
+      `/rest/v1/cards?public_id=eq.${id}&status=in.(draft,published)&select=id,public_id,template_slug,theme,language,card_config,recipient_name,sender_name,message,music_url,expires_at,password_salt,password_hash,password_hint,share_enabled_at,card_photos(image_url,sort_order)&limit=1`,
     )
     const [card] = await response.json()
 
@@ -22,6 +22,14 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     }
     if (!card.share_enabled_at) {
       return NextResponse.json({ error: 'This birthday card is not available until its owner signs in and shares it.' }, { status: 403 })
+    }
+
+    const paidOrderResponse = await supabaseRequest(
+      `/rest/v1/orders?card_id=eq.${encodeURIComponent(card.id)}&status=eq.paid&select=id&limit=1`,
+    )
+    const [paidOrder] = await paidOrderResponse.json() as { id: string }[]
+    if (!paidOrder) {
+      return NextResponse.json({ error: 'This birthday card is not available until payment is verified.' }, { status: 403 })
     }
     if (card.password_hash && !hasCardAccess(_request, id)) {
       return NextResponse.json({

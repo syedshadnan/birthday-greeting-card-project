@@ -86,6 +86,7 @@ NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 # Server-only; never expose this with a NEXT_PUBLIC_ prefix.
 SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
+SMS_WEBHOOK_SECRET=your_server_only_sms_webhook_secret
 ADMIN_EMAILS=your-email@example.com
 ADMIN_PASSWORD=your_strong_admin_password
 ADMIN_SESSION_SECRET=your_random_32_character_secret
@@ -102,6 +103,12 @@ Run the SQL migration scripts located in `supabase/migrations/` in sequential or
 5. `005_card_public_slug.sql`
 6. `006_all_cards_free.sql`
 7. `007_seven_day_card_expiry.sql`
+
+For the current authenticated ownership, sharing, order, and payment-account foundation, also apply
+`008_password_protected_cards.sql` through `014_payment_accounts.sql` in order.
+Migration 012 creates fixed-price pending orders and preserves the legacy
+`payments` table; migrations 013 and 014 add order ownership RLS and receiving
+account snapshots. These migrations do not enable payment verification or payment gateways.
 
 ### 5. Run development server
 

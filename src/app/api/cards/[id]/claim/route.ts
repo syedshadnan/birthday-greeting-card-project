@@ -50,7 +50,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       body: JSON.stringify({
         user_id: user.id,
         claim_token_hash: null,
-        share_enabled_at: new Date().toISOString(),
       }),
     },
   )
