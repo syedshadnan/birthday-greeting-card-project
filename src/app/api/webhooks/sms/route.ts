@@ -135,7 +135,7 @@ export async function POST(request: Request) {
           reasonCode = 'AUTO_VERIFIED'
           reason = 'Payment matched one eligible pending order with trusted provider and receiving-account metadata.'
           const paidResponse = await supabaseRequest(`/rest/v1/orders?id=eq.${orders[0].id}&status=eq.pending`, {
-            method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+            method: 'PATCH', headers: { 'Content-Type': 'application/json', Prefer: 'return=representation' },
             body: JSON.stringify({ status: 'paid', paid_at: new Date().toISOString(), payment_verification_source: 'AUTOMATIC', updated_at: new Date().toISOString() }),
           })
           const paidOrders = await paidResponse.json() as { id: string }[]

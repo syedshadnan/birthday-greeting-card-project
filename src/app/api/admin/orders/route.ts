@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { hasAdminSession } from '../../../../lib/admin-auth'
+import { hasAdminSession, isSameOriginRequest } from '../../../../lib/admin-auth'
 import { supabaseRequest } from '../../../../lib/supabase/server'
 
 export async function GET(request: NextRequest) {
@@ -81,6 +81,7 @@ export async function GET(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   if (!hasAdminSession(request)) return NextResponse.json({ error: 'Admin access is required.' }, { status: 401 })
+  if (!isSameOriginRequest(request)) return NextResponse.json({ error: 'Order cleanup request was rejected.' }, { status: 403 })
   const body = await request.json().catch(() => null) as { orderIds?: unknown } | null
   if (!body || !Array.isArray(body.orderIds) || body.orderIds.length < 1 || body.orderIds.length > 50 || body.orderIds.some(id => typeof id !== 'string' || !/^[0-9a-f-]{36}$/.test(id))) {
     return NextResponse.json({ error: 'Select one or more valid pending test orders.' }, { status: 400 })

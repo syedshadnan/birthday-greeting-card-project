@@ -34,7 +34,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   try {
     if (body.isActive === true) {
       const response = await supabaseRequest('/rest/v1/rpc/activate_payment_account', {
-        method: 'POST', headers: { 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+        method: 'POST', headers: { 'Content-Type': 'application/json', Prefer: 'return=representation' },
         body: JSON.stringify({ p_account_id: id }),
       })
       return NextResponse.json({ account: await response.json() })

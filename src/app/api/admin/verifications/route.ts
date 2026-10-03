@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { hasAdminSession } from '../../../../lib/admin-auth'
+import { hasAdminSession, isSameOriginRequest } from '../../../../lib/admin-auth'
 import { getCurrentUser } from '../../../../lib/auth'
 import { supabaseRequest } from '../../../../lib/supabase/server'
 
@@ -48,20 +48,26 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   if (!hasAdminSession(request)) return NextResponse.json({ error: 'Admin access is required.' }, { status: 401 })
+  if (!isSameOriginRequest(request)) return NextResponse.json({ error: 'Verification approval request was rejected.' }, { status: 403 })
   const body = await request.json().catch(() => null) as { verificationId?: unknown; reason?: unknown } | null
   if (!body || typeof body.verificationId !== 'string' || typeof body.reason !== 'string' || body.reason.trim().length < 10 || body.reason.length > 1000) {
     return NextResponse.json({ error: 'Evidence-based approval details are required.' }, { status: 400 })
   }
-  const admin = await getCurrentUser()
   try {
-    const response = await supabaseRequest('/rest/v1/rpc/approve_payment_verification', {
+    const verificationResponse = await supabaseRequest(`/rest/v1/payment_verifications?id=eq.${encodeURIComponent(body.verificationId)}&select=order_id&limit=1`)
+    const [verification] = await verificationResponse.json() as { order_id: string | null }[]
+    if (!verification?.order_id) {
+      return NextResponse.json({ error: 'This verification is not linked to a pending order.' }, { status: 409 })
+    }
+    const admin = await getCurrentUser()
+    const response = await supabaseRequest('/rest/v1/rpc/approve_manual_payment_order', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ p_verification_id: body.verificationId, p_admin_user_id: admin?.id ?? null, p_reason: body.reason.trim() }),
+      body: JSON.stringify({ p_order_id: verification.order_id, p_admin_user_id: admin?.id ?? null, p_reason: body.reason.trim() }),
     })
     return NextResponse.json({ approvedOrderId: await response.json() })
   } catch (error) {
     console.error('Could not approve payment verification evidence.', error)
-    return NextResponse.json({ error: 'Evidence did not satisfy the payment approval requirements.' }, { status: 409 })
+    return NextResponse.json({ error: 'The pending order could not be manually approved.' }, { status: 409 })
   }
 }
