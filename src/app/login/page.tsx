@@ -136,7 +136,7 @@ export default function LoginPage() {
 
   return (
     <main className="auth-page">
-      <div className="auth-brand"><a className="brand" href="/"><img src="/images/birthday-smile-logo.png" alt="BirthdaySmile" /> BirthdaySmile</a></div>
+      <div className="auth-brand"><a className="brand" href="/"><img src="/images/birthday-smile-logo.png" alt="BirthdaySmile" /></a></div>
       <section className="auth-card">
         <span className="eyebrow">WELCOME</span>
         <h1>{mode === 'sign-in' ? 'Welcome back' : 'Create your account'}</h1>

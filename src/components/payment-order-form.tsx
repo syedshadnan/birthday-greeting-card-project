@@ -45,29 +45,17 @@ export default function PaymentOrderForm({ cardId }: { cardId: string }) {
     }
   }
 
-  const loadExistingOrder = async () => {
-    await claimCardIfNeeded()
-    const response = await fetch(`/api/orders?cardId=${encodeURIComponent(cardId)}`, { cache: 'no-store' })
-    const result = await response.json() as { order?: Order | null; account?: Account | null; error?: string }
-    if (!response.ok) throw new Error(result.error || 'The order could not be loaded.')
-    if (result.order) {
-      setOrder(result.order)
-      setAccount(result.account ?? null)
-      setMethod(result.order.payment_method)
-      setPhone(result.order.customer_phone)
-    }
-    const accessResponse = await fetch(`/api/orders/access?cardId=${encodeURIComponent(cardId)}`, { cache: 'no-store' })
-    if (accessResponse.ok) {
-      const access = await accessResponse.json() as PaymentState
-      if (access.paid) setPaid(true)
-    }
-  }
-
   useEffect(() => {
     let active = true
-    loadExistingOrder().catch(error => {
+    fetch(`/api/orders/access?cardId=${encodeURIComponent(cardId)}`, { cache: 'no-store' })
+      .then(async response => {
+        if (!response.ok) return
+        const access = await response.json() as PaymentState
+        if (active && access.paid) setPaid(true)
+      })
+      .catch(error => {
       if (active) setNotice(error instanceof Error ? error.message : 'The order could not be loaded.')
-    })
+      })
     return () => { active = false }
   }, [cardId])
 
