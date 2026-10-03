@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { hasAdminSession, isSameOriginRequest } from '../../../../lib/admin-auth'
 import { getCurrentUser } from '../../../../lib/auth'
 import { supabaseRequest } from '../../../../lib/supabase/server'
-import { approvePaymentWithEvidence, isUuid } from '../../../../lib/payment-approval'
+import { adminApprovePayment, isUuid } from '../../../../lib/payment-approval'
 
 export async function GET(request: NextRequest) {
   if (!hasAdminSession(request)) return NextResponse.json({ error: 'Admin access is required.' }, { status: 401 })
@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Choose the pending order this evidence pays for.' }, { status: 409 })
     }
     const admin = await getCurrentUser()
-    const result = await approvePaymentWithEvidence(orderId, body.verificationId, admin?.id ?? null, body.reason.trim())
+    const result = await adminApprovePayment(orderId, body.verificationId, admin?.id ?? null, body.reason.trim())
     if (result.error) return NextResponse.json({ error: result.error }, { status: 409 })
     return NextResponse.json({ approvedOrderId: result.approvedOrderId })
   } catch (error) {

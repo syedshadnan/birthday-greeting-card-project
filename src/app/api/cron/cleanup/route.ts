@@ -32,9 +32,16 @@ export async function GET(request: Request) {
       const cards = await expiredResponse.json() as ExpiredCard[]
       if (!cards.length) break
 
-      // Cards with orders are payment history and are never cleaned up.
-      const ordersResponse = await supabaseRequest(`/rest/v1/orders?card_id=in.(${cards.map(card => card.id).join(',')})&select=card_id`)
-      const cardsWithOrders = new Set((await ordersResponse.json() as { card_id: string }[]).map(order => order.card_id))
+      // Cards with orders or legacy payments are payment history and are never cleaned up.
+      const cardIds = cards.map(card => card.id).join(',')
+      const [ordersResponse, legacyPaymentsResponse] = await Promise.all([
+        supabaseRequest(`/rest/v1/orders?card_id=in.(${cardIds})&select=card_id`),
+        supabaseRequest(`/rest/v1/payments?card_id=in.(${cardIds})&select=card_id`),
+      ])
+      const cardsWithOrders = new Set([
+        ...(await ordersResponse.json() as { card_id: string }[]),
+        ...(await legacyPaymentsResponse.json() as { card_id: string }[]),
+      ].map(row => row.card_id))
 
       for (const card of cards) {
       if (cardsWithOrders.has(card.id)) {
@@ -63,11 +70,6 @@ export async function GET(request: Request) {
         )
       }
 
-      await supabaseRequest(`/rest/v1/payments?card_id=eq.${card.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', Prefer: 'return=minimal' },
-        body: JSON.stringify({ card_id: null, status: 'rejected' }),
-      })
       await supabaseRequest(`/rest/v1/cards?id=eq.${card.id}&paid=eq.false`, { method: 'DELETE' })
         removed++
         if (removed >= maxCardsPerRun) break

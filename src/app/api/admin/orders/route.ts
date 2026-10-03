@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
     const [ordersResponse, cardsResponse, accountsResponse, profilesResponse, verificationsResponse, auditsResponse, eventsResponse] = await Promise.all([
       supabaseRequest('/rest/v1/orders?select=id,user_id,card_id,amount_bdt,currency,status,payment_method,customer_phone,payment_account_id,payment_submitted_at,created_at&status=eq.pending&order=created_at.desc'),
       supabaseRequest('/rest/v1/cards?select=id,public_id,recipient_name'),
-      supabaseRequest('/rest/v1/payment_accounts?select=id,account_number,method,webhook_source,provider_account_number'),
+      supabaseRequest('/rest/v1/payment_accounts?select=id,account_number,method'),
       supabaseRequest('/rest/v1/profiles?select=id,email,full_name'),
       supabaseRequest('/rest/v1/payment_verifications?select=id,order_id,verification_status,reason_code,reason,provider,amount_bdt,sender_phone,transaction_id,provider_timestamp,trusted_source,trusted_receiving_account,webhook_event_id,created_at&order=created_at.desc'),
       supabaseRequest('/rest/v1/payment_verification_audit?select=order_id'),
@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
     const [orders, cards, accounts, profiles, verifications, audits, events] = await Promise.all([
       ordersResponse.json() as Promise<{ id: string; user_id: string; card_id: string; amount_bdt: number; currency: string; status: string; payment_method: string; customer_phone: string; payment_account_id: string | null; payment_submitted_at: string | null; created_at: string }[]>,
       cardsResponse.json() as Promise<{ id: string; public_id: string; recipient_name: string | null }[]>,
-      accountsResponse.json() as Promise<{ id: string; account_number: string; method: string; webhook_source: string | null; provider_account_number: string | null }[]>,
+      accountsResponse.json() as Promise<{ id: string; account_number: string; method: string }[]>,
       profilesResponse.json() as Promise<{ id: string; email: string | null; full_name: string | null }[]>,
       verificationsResponse.json() as Promise<{ id: string; order_id: string | null; verification_status: string; reason_code: string; reason: string; provider: string | null; amount_bdt: number | null; sender_phone: string | null; transaction_id: string | null; provider_timestamp: string | null; trusted_source: string | null; trusted_receiving_account: string | null; webhook_event_id: string; created_at: string }[]>,
       auditsResponse.json() as Promise<{ order_id: string }[]>,
@@ -70,7 +70,6 @@ export async function GET(request: NextRequest) {
         })(),
         // Unconsumed SMS evidence an admin may attach to this order; the database re-checks every condition on approval.
         evidence_candidates: (() => {
-          const account = order.payment_account_id ? accountsById.get(order.payment_account_id) : undefined
           return verifications
             .filter(item => item.verification_status === 'needs_review'
               && item.provider === order.payment_method
@@ -88,8 +87,6 @@ export async function GET(request: NextRequest) {
               raw_message: eventById.get(item.webhook_event_id)?.raw_message ?? null,
               amount_matches: Number(item.amount_bdt) === 99,
               sender_matches: item.sender_phone === order.customer_phone,
-              account_matches: Boolean(account?.webhook_source && account.webhook_source === item.trusted_source
-                && account.provider_account_number === item.trusted_receiving_account),
             }))
             .sort((a, b) => Number(b.sender_matches) - Number(a.sender_matches))
         })(),

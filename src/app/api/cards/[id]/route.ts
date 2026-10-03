@@ -3,6 +3,7 @@ import { cardThemes } from '../../../../lib/cards/themes'
 import { defaultBirthdayMusic } from '../../../../lib/cards/music'
 import { createSupabaseServerClient, supabaseRequest } from '../../../../lib/supabase/server'
 import { hasCardAccess } from '../../../../lib/cards/password'
+import { publicCardAccess } from '../../../../lib/cards/access'
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -12,7 +13,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 
   try {
     const response = await supabaseRequest(
-      `/rest/v1/cards?public_id=eq.${id}&status=in.(draft,published)&select=id,public_id,user_id,template_slug,theme,language,card_config,recipient_name,sender_name,message,music_url,expires_at,password_salt,password_hash,password_hint,share_enabled_at,card_photos(image_url,sort_order)&limit=1`,
+      `/rest/v1/cards?public_id=eq.${id}&status=in.(draft,published)&select=id,public_id,user_id,template_slug,theme,language,card_config,recipient_name,sender_name,message,music_url,expires_at,password_salt,password_hash,password_hint,share_enabled_at,admin_locked_at,card_photos(image_url,sort_order)&limit=1`,
     )
     const [card] = await response.json()
 
@@ -24,16 +25,19 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     const { data: { user } } = authClient ? await authClient.auth.getUser() : { data: { user: null } }
     const isOwner = Boolean(user?.id && user.id === card.user_id)
 
-    if (!isOwner && !card.share_enabled_at) {
-      return NextResponse.json({ error: 'This birthday card is not available until its owner signs in and shares it.' }, { status: 403 })
-    }
-
     if (!isOwner) {
       const paidOrderResponse = await supabaseRequest(
         `/rest/v1/orders?card_id=eq.${encodeURIComponent(card.id)}&status=eq.paid&select=id&limit=1`,
       )
       const [paidOrder] = await paidOrderResponse.json() as { id: string }[]
-      if (!paidOrder) {
+      const access = publicCardAccess({ locked: Boolean(card.admin_locked_at), shareEnabled: Boolean(card.share_enabled_at), paid: Boolean(paidOrder) })
+      if (access === 'locked') {
+        return NextResponse.json({ error: 'This birthday card is currently unavailable.' }, { status: 403 })
+      }
+      if (access === 'not_shared') {
+        return NextResponse.json({ error: 'This birthday card is not available until its owner signs in and shares it.' }, { status: 403 })
+      }
+      if (access === 'unpaid') {
         return NextResponse.json({ error: 'This birthday card is not available until payment is verified.' }, { status: 403 })
       }
     }

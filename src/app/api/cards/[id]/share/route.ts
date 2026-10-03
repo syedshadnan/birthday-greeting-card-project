@@ -19,11 +19,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 
   const response = await supabaseRequest(
-    `/rest/v1/cards?public_id=eq.${encodeURIComponent(id)}&user_id=eq.${encodeURIComponent(user.id)}&status=in.(draft,published)&select=id,public_id&limit=1`,
+    `/rest/v1/cards?public_id=eq.${encodeURIComponent(id)}&user_id=eq.${encodeURIComponent(user.id)}&status=in.(draft,published)&select=id,public_id,admin_locked_at&limit=1`,
   )
-  const [card] = await response.json() as { id: string; public_id: string }[]
+  const [card] = await response.json() as { id: string; public_id: string; admin_locked_at: string | null }[]
   if (!card) {
     return NextResponse.json({ error: 'You are not authorized to share this card.' }, { status: 403 })
+  }
+  if (card.admin_locked_at) {
+    return NextResponse.json({ error: 'This card has been locked by BirthdaySmile support. Please contact us.' }, { status: 423 })
   }
 
   const paidOrderResponse = await supabaseRequest(

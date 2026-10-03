@@ -91,45 +91,69 @@ export async function DELETE(
 
   try {
     const cardResponse = await supabaseRequest(
-      `/rest/v1/cards?id=eq.${id}&select=id,public_id,music_url,card_photos(image_url)&limit=1`,
+      `/rest/v1/cards?id=eq.${id}&deleted_at=is.null&select=id,public_id,music_url,card_photos(image_url)&limit=1`,
     )
     const [card] = await cardResponse.json() as CardForDeletion[]
     if (!card) {
       return NextResponse.json({ error: 'This birthday card could not be found.' }, { status: 404 })
     }
 
-    // Orders are payment history; a card with orders is retained along with its assets.
-    const ordersResponse = await supabaseRequest(`/rest/v1/orders?card_id=eq.${card.id}&select=id&limit=1`)
-    if ((await ordersResponse.json() as { id: string }[]).length) {
-      return NextResponse.json({ error: 'This card has payment orders and cannot be deleted.' }, { status: 409 })
-    }
-
     const { url } = getSupabaseConfig()
-    const assets = [...(card.card_photos ?? []).map(photo => photo.image_url), ...(card.music_url ? [card.music_url] : [])]
-    for (const assetUrl of assets) {
-      const path = storagePath(assetUrl, card.public_id, url)
+    const assetPaths = [...(card.card_photos ?? []).map(photo => photo.image_url), ...(card.music_url ? [card.music_url] : [])]
+      .map(assetUrl => storagePath(assetUrl, card.public_id, url))
+
+    // Cards with orders or legacy payments are archived so payment, webhook, and audit evidence stays intact.
+    const resultResponse = await supabaseRequest('/rest/v1/rpc/admin_delete_card', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ p_card_id: card.id }),
+    })
+    const outcome = await resultResponse.json() as 'deleted' | 'archived'
+
+    for (const path of assetPaths) {
       await supabaseRequest(`/storage/v1/object/birthday-cards/${path.split('/').map(encodeURIComponent).join('/')}`, {
         method: 'DELETE',
       }, { ignoreNotFound: true })
     }
 
-    await supabaseRequest(`/rest/v1/payments?card_id=eq.${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', Prefer: 'return=minimal' },
-      body: JSON.stringify({ card_id: null, status: 'rejected' }),
-    })
-    const deleteResponse = await supabaseRequest(`/rest/v1/cards?id=eq.${id}`, {
-      method: 'DELETE',
-      headers: { Prefer: 'return=representation' },
-    })
-    const deleted = await deleteResponse.json()
-    if (!Array.isArray(deleted) || deleted.length === 0) {
-      return NextResponse.json({ error: 'This birthday card was already deleted.' }, { status: 404 })
-    }
-
-    return NextResponse.json({ deleted: true })
+    return NextResponse.json({ deleted: true, paymentHistoryRetained: outcome === 'archived' })
   } catch (error) {
     console.error('Could not delete a generated birthday card from the admin dashboard.', error)
     return NextResponse.json({ error: 'The card could not be fully deleted. Please try again.' }, { status: 500 })
+  }
+}
+
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  if (!hasAdminSession(request)) {
+    return NextResponse.json({ error: 'Sign in as an admin to change this card.' }, { status: 401 })
+  }
+  if (!isSameOriginRequest(request)) {
+    return NextResponse.json({ error: 'Card update request was rejected.' }, { status: 403 })
+  }
+
+  const { id } = await params
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+    return NextResponse.json({ error: 'This birthday card could not be found.' }, { status: 404 })
+  }
+  const body = await request.json().catch(() => null) as { locked?: unknown } | null
+  if (!body || typeof body.locked !== 'boolean' || Object.keys(body).length !== 1) {
+    return NextResponse.json({ error: 'Choose whether to lock or unlock this card.' }, { status: 400 })
+  }
+
+  try {
+    const response = await supabaseRequest(`/rest/v1/cards?id=eq.${id}&deleted_at=is.null`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Prefer: 'return=representation' },
+      body: JSON.stringify({ admin_locked_at: body.locked ? new Date().toISOString() : null }),
+    })
+    const [card] = await response.json() as { id: string; admin_locked_at: string | null }[]
+    if (!card) return NextResponse.json({ error: 'This birthday card could not be found.' }, { status: 404 })
+    return NextResponse.json({ id: card.id, admin_locked_at: card.admin_locked_at })
+  } catch (error) {
+    console.error('Could not change the admin lock on a birthday card.', error)
+    return NextResponse.json({ error: 'The card could not be updated. Please try again.' }, { status: 500 })
   }
 }

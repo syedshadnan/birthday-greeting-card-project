@@ -56,6 +56,7 @@ export async function getCurrentOwnedCards(): Promise<{ cards: OwnedCard[]; erro
     .from('cards')
     .select('id, public_id, recipient_name, created_at, expires_at, status, share_enabled_at')
     .eq('user_id', user.id)
+    .is('deleted_at', null)
     .order('created_at', { ascending: false })
 
   if (error) {

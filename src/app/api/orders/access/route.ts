@@ -19,6 +19,7 @@ export async function GET(request: Request) {
     .select('id')
     .eq('public_id', cardId)
     .eq('user_id', user.id)
+    .is('deleted_at', null)
     .maybeSingle()
   if (cardError) {
     console.error('Could not verify card ownership for payment access.', cardError)

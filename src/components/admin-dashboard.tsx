@@ -13,6 +13,8 @@ type AdminCard = {
   status: string
   created_at: string
   expires_at: string
+  admin_locked_at: string | null
+  deleted_at: string | null
   card_photos: { image_url: string; sort_order: number }[]
 }
 type PendingOrder = {
@@ -53,7 +55,6 @@ type PendingOrder = {
     raw_message: string | null
     amount_matches: boolean
     sender_matches: boolean
-    account_matches: boolean
   }[]
   cleanup: { eligible: boolean; reason: string }
 }
@@ -163,7 +164,7 @@ export default function AdminDashboard() {
 
   const approveOrder = async () => {
     const evidence = reviewOrder?.evidence_candidates.find(item => item.id === approvalEvidenceId)
-    if (!reviewOrder || !evidence || approvalReason.trim().length < 10) return
+    if (!reviewOrder || (!evidence && approvalEvidenceId !== 'none') || approvalReason.trim().length < 10) return
     const confirmation = [
       'Verify and approve this payment?',
       `Order ID: ${reviewOrder.id}`,
@@ -171,10 +172,12 @@ export default function AdminDashboard() {
       `Payment method: ${reviewOrder.payment_method}`,
       `Amount: ${reviewOrder.amount_bdt} ${reviewOrder.currency}`,
       `Receiving account: ${reviewOrder.payment_account?.account_number || 'Unavailable'}`,
-      `Evidence transaction ID: ${evidence.transaction_id}`,
-      `Evidence sender / amount: ${evidence.sender_phone} / ${evidence.amount_bdt} BDT`,
-      `Evidence receiving account: ${evidence.trusted_source} / ${evidence.trusted_receiving_account}`,
-      ...(evidence.sender_matches ? [] : ['WARNING: SMS sender does not match the customer wallet on this order.']),
+      ...(evidence ? [
+        `Evidence transaction ID: ${evidence.transaction_id}`,
+        `Evidence sender / amount: ${evidence.sender_phone} / ${evidence.amount_bdt} BDT`,
+        ...(evidence.sender_matches ? [] : ['WARNING: SMS sender does not match the customer wallet on this order.']),
+        ...(evidence.amount_matches ? [] : ['WARNING: SMS amount is not 99 BDT.']),
+      ] : ['WARNING: approving without SMS evidence.']),
     ].join('\n')
     if (!window.confirm(confirmation)) return
     setApprovingOrder(true)
@@ -183,7 +186,7 @@ export default function AdminDashboard() {
       const response = await fetch(`/api/admin/orders/${reviewOrder.id}/approve`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ verificationId: evidence.id, reason: approvalReason.trim() }),
+        body: JSON.stringify({ verificationId: evidence?.id ?? null, reason: approvalReason.trim() }),
       })
       const result: { error?: string } = await response.json()
       if (!response.ok) throw new Error(result.error || 'The payment could not be approved.')
@@ -257,8 +260,28 @@ export default function AdminDashboard() {
     }
   }
 
+  const setCardLocked = async (card: AdminCard, locked: boolean) => {
+    if (!window.confirm(locked ? `Lock the card for ${card.recipient_name}? Recipients and sharing will be blocked.` : `Unlock the card for ${card.recipient_name}? Access returns to normal for its payment state.`)) return
+    setBusyId(card.id)
+    setError('')
+    try {
+      const response = await fetch(`/api/admin/cards/${card.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ locked }),
+      })
+      const result: { error?: string } = await response.json()
+      if (!response.ok) throw new Error(result.error || 'Could not update this card.')
+      await loadCards(offset)
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not update this card.')
+    } finally {
+      setBusyId('')
+    }
+  }
+
   const deleteCard = async (card: AdminCard) => {
-    if (!window.confirm(`Permanently delete the card for ${card.recipient_name}? Its photos and uploaded music will also be deleted.`)) return
+    if (!window.confirm(`Delete the card for ${card.recipient_name}? Its photos and uploaded music will be deleted. Payment, webhook, and audit records are kept.`)) return
 
     setBusyId(card.id)
     setError('')
@@ -440,7 +463,7 @@ export default function AdminDashboard() {
         const expired = new Date(card.expires_at).getTime() <= Date.now() || card.status === 'expired'
         const photos = [...(card.card_photos ?? [])].sort((a,b)=>a.sort_order-b.sort_order)
         return <article className="admin-payment admin-card" key={card.id}>
-          <div className="admin-payment-heading"><div><span className="eyebrow">{card.theme} · {card.status}</span><h2>{card.recipient_name}</h2><p className="admin-card-byline">From {card.sender_name}</p></div><span className={'payment-status '+(expired?'rejected':'verified')}>{expired?'Expired':'Active'}</span></div>
+          <div className="admin-payment-heading"><div><span className="eyebrow">{card.theme} · {card.status}</span><h2>{card.recipient_name}</h2><p className="admin-card-byline">From {card.sender_name}</p></div><span className={'payment-status '+(expired||card.admin_locked_at?'rejected':'verified')}>{card.deleted_at?'Deleted · history kept':card.admin_locked_at?'Locked':expired?'Expired':'Active'}</span></div>
           <dl>
             <div><dt>Created</dt><dd><time dateTime={card.created_at}>{displayDate(card.created_at)}</time></dd></div>
             <div><dt>Expires</dt><dd><time dateTime={card.expires_at}>{displayDate(card.expires_at)}</time></dd></div>
@@ -449,7 +472,8 @@ export default function AdminDashboard() {
           {photos.length>0&&<div className="admin-card-photos" aria-label={`${photos.length} card photos`}>{photos.map((photo,index)=><img key={photo.image_url} src={photo.image_url} alt={`Photo ${index+1} for ${card.recipient_name}`} loading="lazy"/>)}</div>}
           <div className="admin-payment-actions">
             <a className="button outline" href={`/admin/preview/${card.id}`} target="_blank" rel="noreferrer">Open card ↗</a>
-            <button className="button outline admin-delete-button" type="button" disabled={busyId===card.id} onClick={()=>void deleteCard(card)}>{busyId===card.id?'Deleting…':'Delete card'}</button>
+            {!card.deleted_at&&<button className="button outline" type="button" disabled={busyId===card.id} onClick={()=>void setCardLocked(card,!card.admin_locked_at)}>{card.admin_locked_at?'Unlock card':'Lock card'}</button>}
+            {!card.deleted_at&&<button className="button outline admin-delete-button" type="button" disabled={busyId===card.id} onClick={()=>void deleteCard(card)}>{busyId===card.id?'Working…':'Delete card'}</button>}
           </div>
         </article>
       })}</div>}
@@ -482,14 +506,18 @@ export default function AdminDashboard() {
             <div><dt>Matching result</dt><dd>{reviewOrder.verification.event ? 'Evidence is associated with this order.' : 'No matching evidence is available.'}</dd></div>
           </dl>
           <fieldset className="admin-review-reason">
-            <legend>Payment evidence (required)</legend>
-            {!reviewOrder.evidence_candidates.length ? <p>No unconsumed {reviewOrder.payment_method} SMS evidence is available. Approval requires a received SMS.</p> : reviewOrder.evidence_candidates.map(item => <label key={item.id}>
+            <legend>Payment evidence</legend>
+            {reviewOrder.evidence_candidates.map(item => <label key={item.id}>
               <input type="radio" name="approval-evidence" value={item.id} checked={approvalEvidenceId === item.id} onChange={() => setApprovalEvidenceId(item.id)} />
-              <span><strong>{item.transaction_id}</strong> · {item.amount_bdt ?? '?'} BDT{item.amount_matches ? '' : ' ✗ amount'} · sender {item.sender_phone || 'unknown'}{item.sender_matches ? ' ✓' : ' ✗ differs from customer wallet'} · {item.trusted_source || '?'} / {item.trusted_receiving_account || '?'}{item.account_matches ? ' ✓' : ' ✗ receiving account'} · {item.reason_code}<br /><small>{item.raw_message || 'Raw SMS unavailable'}</small></span>
+              <span><strong>{item.transaction_id}</strong> · {item.amount_bdt ?? '?'} BDT{item.amount_matches ? '' : ' ✗ amount'} · sender {item.sender_phone || 'unknown'}{item.sender_matches ? ' ✓' : ' ✗ differs from customer wallet'} · {item.reason_code}<br /><small>{item.raw_message || 'Raw SMS unavailable'}</small></span>
             </label>)}
+            <label>
+              <input type="radio" name="approval-evidence" value="none" checked={approvalEvidenceId === 'none'} onChange={() => setApprovalEvidenceId('none')} />
+              <span>Approve without SMS evidence</span>
+            </label>
           </fieldset>
-          <label className="admin-review-reason">Approval reason<textarea value={approvalReason} onChange={event => setApprovalReason(event.target.value)} placeholder="Explain why this evidence pays for this pending order." rows={4} /></label>
-          <p className="admin-review-warning">Approval is bound to the selected SMS evidence. The server re-checks amount, provider, receiving account, transaction-ID reuse, and card payment status, and permanently audits the approval.</p>
+          <label className="admin-review-reason">Approval reason<textarea value={approvalReason} onChange={event => setApprovalReason(event.target.value)} placeholder="Explain why you are approving this payment." rows={4} /></label>
+          <p className="admin-review-warning">The approval is permanently audited. A card can only be paid once, and an SMS transaction ID can only be credited once.</p>
           {error && <p className="form-error" role="alert">{error}</p>}
           <div className="admin-modal-actions"><button className="button outline" type="button" onClick={() => setReviewOrder(null)}>Cancel</button><button className="button" type="button" disabled={approvingOrder || !approvalEvidenceId || approvalReason.trim().length < 10} onClick={() => void approveOrder()}>{approvingOrder ? 'Approving…' : 'Approve Payment'}</button></div>
         </section>

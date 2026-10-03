@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const response = await supabaseRequest(
-      `/rest/v1/cards?select=id,public_id,recipient_name,sender_name,message,theme,status,created_at,expires_at,music_url,card_photos(image_url,sort_order)&order=created_at.desc,id.asc&limit=${pageSize}&offset=${offset}`,
+      `/rest/v1/cards?select=id,public_id,recipient_name,sender_name,message,theme,status,created_at,expires_at,music_url,admin_locked_at,deleted_at,card_photos(image_url,sort_order)&order=created_at.desc,id.asc&limit=${pageSize}&offset=${offset}`,
       { headers: { Prefer: 'count=exact' } },
     )
     const cards = await response.json()
