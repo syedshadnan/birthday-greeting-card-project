@@ -20,12 +20,15 @@ export default function LoginPage() {
 
   useEffect(() => {
     const requestedNext = new URLSearchParams(window.location.search).get('next')
-    if (requestedNext?.startsWith('/') && !requestedNext.startsWith('//') && !requestedNext.includes('\\')) {
-      setNextPath(requestedNext)
-    }
+    const safeNext = requestedNext?.startsWith('/') && !requestedNext.startsWith('//') && !requestedNext.includes('\\') ? requestedNext : '/account'
+    setNextPath(safeNext)
     const supabase = createSupabaseBrowserClient()
     void supabase.auth.getUser().then(({ data }) => {
-      setUserEmail(data.user?.email ?? null)
+      if (data.user) {
+        window.location.replace(safeNext)
+        return
+      }
+      setUserEmail(null)
     })
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       setUserEmail(session?.user?.email ?? null)

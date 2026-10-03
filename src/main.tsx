@@ -20,13 +20,17 @@ function Brand(){return <a className="logo" href="/" onClick={e=>{e.preventDefau
 function navigate(path:string){history.pushState({},'',path);window.dispatchEvent(new PopStateEvent('popstate'))}
 function Button({children,onClick,variant='dark',type='button',disabled=false}:{children:React.ReactNode;onClick?:()=>void;variant?:string;type?:'button'|'submit';disabled?:boolean}){return <button type={type} className={'button '+variant} onClick={onClick} disabled={disabled}>{children}</button>}
 function Nav(){
- const [user,setUser]=useState(false)
- useEffect(()=>{const supabase=createSupabaseBrowserClient();void supabase.auth.getUser().then(({data})=>setUser(Boolean(data.user)));const {data:listener}=supabase.auth.onAuthStateChange((_event,session)=>setUser(Boolean(session?.user)));return()=>listener.subscription.unsubscribe()},[])
  const goToHowItWorks=(event:React.MouseEvent<HTMLAnchorElement>)=>{
   event.preventDefault()
   navigate('/#how')
  }
- return <header className="site-header"><nav className="site-nav"><Brand/><div className="links"><a href="/#how" onClick={goToHowItWorks}>How it works</a><a href="/templates" onClick={e=>{e.preventDefault();navigate('/templates')}}>Templates</a><a href="/login" className="nav-login" onClick={e=>{e.preventDefault();navigate('/login')}}>Login</a><a href="/templates" className="btn-sm" onClick={e=>{e.preventDefault();navigate('/templates')}}>Create a card →</a></div></nav></header>
+ const goToLoginOrAccount=async(event:React.MouseEvent<HTMLAnchorElement>)=>{
+   event.preventDefault()
+   const supabase=createSupabaseBrowserClient()
+   const {data}=await supabase.auth.getUser()
+   window.location.assign(data.user ? '/account' : '/login')
+ }
+ return <header className="site-header"><nav className="site-nav"><Brand/><div className="links"><a href="/#how" onClick={goToHowItWorks}>How it works</a><a href="/templates" onClick={e=>{e.preventDefault();navigate('/templates')}}>Templates</a><a href="/login" className="nav-login" onClick={event=>void goToLoginOrAccount(event)}>Login</a><a href="/templates" className="btn-sm" onClick={e=>{e.preventDefault();navigate('/templates')}}>Create a card →</a></div></nav></header>
 }
 function MiniCard({t}: {t:typeof templates[number]}){return <div className={'mini-card '+t.className}><i>{t.emoji}</i><small>happy birthday</small><strong>for you</strong><em>made with love</em></div>}
 function TinyJoy(){const [message,setMessage]=useState('');const joys=['You make someone’s world brighter just by being in it. ✨','A little kindness has a way of coming back around. 🌼','Somewhere, someone is smiling because of you. 💛','Today is a good day to make a small happy memory. 🎈'];const shareJoy=()=>{let next=Math.floor(Math.random()*joys.length);if(joys.length>1&&joys[next]===message)next=(next+1)%joys.length;setMessage(joys[next])};return <div className="tiny-joy"><span>Need a tiny smile?</span><button type="button" onClick={shareJoy}>Pick a little joy <b aria-hidden="true">✿</b></button><p aria-live="polite">{message}</p></div>}
