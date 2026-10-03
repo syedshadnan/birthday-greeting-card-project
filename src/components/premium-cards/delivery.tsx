@@ -85,10 +85,14 @@ export default function CardDelivery({ cardId, password, template }: DeliveryPro
         return
       }
       setAuthState('authenticated')
-      void fetch(`/api/orders/access?cardId=${encodeURIComponent(cardId)}`, {
+      // Attach this browser's anonymous card to the signed-in user before checking payment.
+      void fetch(`/api/cards/${encodeURIComponent(cardId)}/claim`, {
+        method: 'POST',
+        credentials: 'include',
+      }).catch(() => undefined).then(() => fetch(`/api/orders/access?cardId=${encodeURIComponent(cardId)}`, {
         credentials: 'include',
         cache: 'no-store',
-      }).then(async response => {
+      })).then(async response => {
         const result = await response.json() as { paid?: boolean; pending?: boolean; error?: string }
         if (!response.ok) throw new Error(result.error || 'Payment status could not be verified.')
         setPaymentState(result.paid ? 'paid' : result.pending ? 'pending' : 'unpaid')
@@ -163,7 +167,9 @@ export default function CardDelivery({ cardId, password, template }: DeliveryPro
   }
 
   const sharingAvailable = authState === 'authenticated' && paymentState === 'paid'
-  const sharingMessage = authState !== 'authenticated'
+  const sharingMessage = authState === 'checking'
+    ? 'Checking access…'
+    : authState === 'unauthenticated'
     ? 'Sign in to unlock sharing.'
     : paymentState === 'pending'
       ? 'Payment is pending verification.'

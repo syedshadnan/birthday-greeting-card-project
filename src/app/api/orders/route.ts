@@ -4,6 +4,8 @@ import { getCurrentUser } from '../../../lib/auth'
 import { createSupabaseServerClient, supabaseRequest } from '../../../lib/supabase/server'
 import { getActivePaymentAccount, isPaymentMethod, normalizeBangladeshPhone } from '../../../lib/payment-accounts'
 
+const orderColumns = 'id, card_id, amount_bdt, currency, status, payment_method, customer_phone, payment_account_id, payment_submitted_at, created_at, updated_at, expires_at'
+
 function isValidCardId(value: unknown): value is string {
   return typeof value === 'string' && /^[a-z0-9]{12,32}$/.test(value)
 }
@@ -17,6 +19,24 @@ function publicPaymentAccount(account: { id: string; method: string; account_num
     ? { id: account.id, method: account.method, accountNumber: account.account_number }
     : null
 }
+
+async function orderPaymentAccount(paymentAccountId: string | null) {
+  if (!paymentAccountId) return null
+  const response = await supabaseRequest(`/rest/v1/payment_accounts?id=eq.${paymentAccountId}&select=id,method,account_number&limit=1`)
+  const [account] = await response.json() as { id: string; method: string; account_number: string }[]
+  return publicPaymentAccount(account ?? null)
+}
+
+// orders.status = 'paid' is the only proof of payment; a paid order permanently locks payment for the card.
+async function cardHasPaidOrder(cardUuid: string) {
+  const response = await supabaseRequest(`/rest/v1/orders?card_id=eq.${cardUuid}&status=eq.paid&select=id&limit=1`)
+  return (await response.json() as { id: string }[]).length > 0
+}
+
+const alreadyPaidResponse = () => NextResponse.json(
+  { error: 'This card already has a verified payment.', paid: true },
+  { status: 409, headers: { 'Cache-Control': 'no-store' } },
+)
 
 export async function GET(request: Request) {
   const user = await getCurrentUser()
@@ -40,26 +60,28 @@ export async function GET(request: Request) {
   }
   if (!card) return NextResponse.json({ error: 'You are not authorized to view this card payment.' }, { status: 403 })
 
-  const { data: order, error: orderError } = await supabase
-    .from('orders')
-    .select('id, card_id, amount_bdt, currency, status, payment_method, customer_phone, payment_account_id, payment_submitted_at, created_at, updated_at, expires_at')
-    .eq('user_id', user.id)
-    .eq('card_id', card.id)
-    .eq('status', 'pending')
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-  if (orderError) {
-    console.error('Could not look up a pending order.', orderError)
+  try {
+    if (await cardHasPaidOrder(card.id)) {
+      return NextResponse.json({ order: null, account: null, paid: true }, { headers: { 'Cache-Control': 'no-store' } })
+    }
+
+    const { data: order, error: orderError } = await supabase
+      .from('orders')
+      .select(orderColumns)
+      .eq('user_id', user.id)
+      .eq('card_id', card.id)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (orderError) throw orderError
+    if (!order) return NextResponse.json({ order: null, account: null, paid: false }, { headers: { 'Cache-Control': 'no-store' } })
+
+    return NextResponse.json({ order, account: await orderPaymentAccount(order.payment_account_id), paid: false }, { headers: { 'Cache-Control': 'no-store' } })
+  } catch (error) {
+    console.error('Could not look up the card order.', error)
     return NextResponse.json({ error: 'The order could not be loaded.' }, { status: 500 })
   }
-  if (!order) return NextResponse.json({ order: null, account: null })
-
-  const accountResponse = order.payment_account_id
-    ? await supabaseRequest(`/rest/v1/payment_accounts?id=eq.${order.payment_account_id}&select=id,method,account_number&limit=1`)
-    : null
-  const [account] = accountResponse ? await accountResponse.json() as { id: string; method: string; account_number: string }[] : []
-  return NextResponse.json({ order, account: publicPaymentAccount(account ?? null) }, { headers: { 'Cache-Control': 'no-store' } })
 }
 
 export async function POST(request: Request) {
@@ -87,6 +109,7 @@ export async function POST(request: Request) {
   if (!hasOnlyAllowedFields(input) || !isValidCardId(input.cardId) || !isPaymentMethod(input.paymentMethod)) {
     return NextResponse.json({ error: 'Choose a valid card and payment method.' }, { status: 400 })
   }
+  const paymentMethod = input.paymentMethod
 
   const customerPhone = normalizeBangladeshPhone(input.customerPhone)
   if (!customerPhone) {
@@ -114,78 +137,70 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'You are not authorized to create an order for this card.' }, { status: 403 })
   }
 
-  const { data: existingOrder, error: existingError } = await supabase
+  const findPendingOrder = () => supabase
     .from('orders')
-    .select('id, card_id, amount_bdt, currency, status, payment_method, customer_phone, payment_account_id, payment_submitted_at, created_at, updated_at, expires_at')
+    .select(orderColumns)
     .eq('user_id', user.id)
     .eq('card_id', card.id)
-    .eq('payment_method', input.paymentMethod)
+    .eq('payment_method', paymentMethod)
     .eq('status', 'pending')
     .maybeSingle()
 
-  if (existingError) {
-    console.error('Could not check for an existing pending order.', existingError)
-    return NextResponse.json({ error: 'The order could not be created.' }, { status: 500 })
-  }
-  if (existingOrder) {
-    const accountResponse = existingOrder.payment_account_id
-      ? await supabaseRequest(`/rest/v1/payment_accounts?id=eq.${existingOrder.payment_account_id}&select=id,method,account_number&limit=1`)
-      : null
-    const [account] = accountResponse ? await accountResponse.json() as { id: string; method: string; account_number: string }[] : []
-    return NextResponse.json({ order: existingOrder, account: publicPaymentAccount(account ?? null), existing: true })
-  }
+  try {
+    if (await cardHasPaidOrder(card.id)) return alreadyPaidResponse()
 
-  const activeAccount = await getActivePaymentAccount(input.paymentMethod)
-  if (!activeAccount) {
-    return NextResponse.json({ error: `${input.paymentMethod === 'bkash' ? 'bKash' : 'Nagad'} payment is currently unavailable.` }, { status: 503 })
-  }
-
-  const orderResponse = await supabaseRequest('/rest/v1/orders', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Prefer: 'return=representation' },
-    body: JSON.stringify({
-      user_id: user.id,
-      card_id: card.id,
-      amount_bdt: 99,
-      currency: 'BDT',
-      status: 'pending',
-      payment_method: input.paymentMethod,
-      customer_phone: customerPhone,
-      payment_account_id: activeAccount.id,
-      expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-    }),
-  })
-  const [order] = await orderResponse.json() as { id: string }[]
-
-  if (!order) {
-    if (orderResponse.status === 409) {
-      const { data: concurrentOrder } = await supabase
-        .from('orders')
-        .select('id, card_id, amount_bdt, currency, status, payment_method, customer_phone, payment_account_id, payment_submitted_at, created_at, updated_at, expires_at')
-        .eq('user_id', user.id)
-        .eq('card_id', card.id)
-        .eq('payment_method', input.paymentMethod)
-        .eq('status', 'pending')
-        .maybeSingle()
-      if (concurrentOrder) {
-        const accountResponse = concurrentOrder.payment_account_id
-          ? await supabaseRequest(`/rest/v1/payment_accounts?id=eq.${concurrentOrder.payment_account_id}&select=id,method,account_number&limit=1`)
-          : null
-        const [account] = accountResponse ? await accountResponse.json() as { id: string; method: string; account_number: string }[] : []
-        return NextResponse.json({ order: concurrentOrder, account: publicPaymentAccount(account ?? null), existing: true })
-      }
+    const { data: existingOrder, error: existingError } = await findPendingOrder()
+    if (existingError) throw existingError
+    if (existingOrder) {
+      return NextResponse.json({ order: existingOrder, account: await orderPaymentAccount(existingOrder.payment_account_id), existing: true })
     }
-    console.error('Could not create pending order.', orderResponse.status)
+
+    const activeAccount = await getActivePaymentAccount(paymentMethod)
+    if (!activeAccount) {
+      return NextResponse.json({ error: `${paymentMethod === 'bkash' ? 'bKash' : 'Nagad'} payment is currently unavailable.` }, { status: 503 })
+    }
+
+    let order: { id: string } | undefined
+    try {
+      const orderResponse = await supabaseRequest('/rest/v1/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Prefer: 'return=representation' },
+        body: JSON.stringify({
+          user_id: user.id,
+          card_id: card.id,
+          amount_bdt: 99,
+          currency: 'BDT',
+          status: 'pending',
+          payment_method: paymentMethod,
+          customer_phone: customerPhone,
+          payment_account_id: activeAccount.id,
+          expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        }),
+      })
+      order = (await orderResponse.json() as { id: string }[])[0]
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : ''
+      // The database trigger rejects new orders for a card that was paid concurrently.
+      if (detail.includes('CARD_ALREADY_PAID')) return alreadyPaidResponse()
+      if (!detail.startsWith('Supabase request failed (409)')) throw error
+      // A concurrent request (e.g. another tab) created the pending order first; reuse it.
+      const { data: concurrentOrder } = await findPendingOrder()
+      if (!concurrentOrder) throw error
+      return NextResponse.json({ order: concurrentOrder, account: await orderPaymentAccount(concurrentOrder.payment_account_id), existing: true })
+    }
+    if (!order) throw new Error('The database did not return the new order.')
+
+    return NextResponse.json({
+      order,
+      account: {
+        id: activeAccount.id,
+        method: activeAccount.method,
+        accountNumber: activeAccount.account_number,
+      },
+      existing: false,
+    }, { status: 201 })
+  } catch (error) {
+    console.error('Could not create pending order.', error)
     return NextResponse.json({ error: 'The order could not be created.' }, { status: 500 })
   }
-
-  return NextResponse.json({
-    order,
-    account: {
-      id: activeAccount.id,
-      method: activeAccount.method,
-      accountNumber: activeAccount.account_number,
-    },
-    existing: false,
-  }, { status: 201 })
 }

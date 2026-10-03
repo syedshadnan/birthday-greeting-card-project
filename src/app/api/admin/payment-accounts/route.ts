@@ -36,18 +36,33 @@ export async function POST(request: Request) {
 
   const user = (await import('../../../../lib/auth')).getCurrentUser
   const currentUser = await user()
-  const response = await supabaseRequest('/rest/v1/payment_accounts', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Prefer: 'return=representation' },
-    body: JSON.stringify({
-      method: body.method,
-      account_number: accountNumber,
-      label: typeof body.label === 'string' ? body.label.trim().slice(0, 80) || null : null,
-      is_active: body.isActive === true,
-      created_by: currentUser?.id ?? null,
-      webhook_source: webhookSource || null,
-      provider_account_number: providerAccountNumber || null,
-    }),
-  })
-  return NextResponse.json({ accounts: await response.json() }, { status: 201 })
+  try {
+    const response = await supabaseRequest('/rest/v1/payment_accounts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Prefer: 'return=representation' },
+      body: JSON.stringify({
+        method: body.method,
+        account_number: accountNumber,
+        label: typeof body.label === 'string' ? body.label.trim().slice(0, 80) || null : null,
+        is_active: false,
+        created_by: currentUser?.id ?? null,
+        webhook_source: webhookSource || null,
+        provider_account_number: providerAccountNumber || null,
+      }),
+    })
+    const accounts = await response.json() as { id: string }[]
+    if (body.isActive === true && accounts[0]) {
+      // Atomically deactivates the previous account for this method only.
+      const activated = await supabaseRequest('/rest/v1/rpc/activate_payment_account', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ p_account_id: accounts[0].id }),
+      })
+      return NextResponse.json({ accounts: [await activated.json()] }, { status: 201 })
+    }
+    return NextResponse.json({ accounts }, { status: 201 })
+  } catch (error) {
+    console.error('Could not create payment account.', error)
+    const duplicate = error instanceof Error && error.message.startsWith('Supabase request failed (409)')
+    return NextResponse.json({ error: duplicate ? 'This trust mapping is already used by another account for this method.' : 'Payment account could not be created.' }, { status: duplicate ? 409 : 500 })
+  }
 }

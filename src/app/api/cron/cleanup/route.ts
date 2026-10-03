@@ -23,15 +23,24 @@ export async function GET(request: Request) {
 
   try {
     let removed = 0
+    let retained = 0
 
     while (removed < maxCardsPerRun) {
       const expiredResponse = await supabaseRequest(
-        `/rest/v1/cards?paid=eq.false&status=in.(draft,published)&expires_at=lt.${encodeURIComponent(new Date().toISOString())}&select=id,public_id,music_url&order=expires_at.asc&limit=${batchSize}`,
+        `/rest/v1/cards?paid=eq.false&status=in.(draft,published)&expires_at=lt.${encodeURIComponent(new Date().toISOString())}&select=id,public_id,music_url&order=expires_at.asc,id.asc&offset=${retained}&limit=${batchSize}`,
       )
       const cards = await expiredResponse.json() as ExpiredCard[]
       if (!cards.length) break
 
+      // Cards with orders are payment history and are never cleaned up.
+      const ordersResponse = await supabaseRequest(`/rest/v1/orders?card_id=in.(${cards.map(card => card.id).join(',')})&select=card_id`)
+      const cardsWithOrders = new Set((await ordersResponse.json() as { card_id: string }[]).map(order => order.card_id))
+
       for (const card of cards) {
+      if (cardsWithOrders.has(card.id)) {
+        retained++
+        continue
+      }
       const photosResponse = await supabaseRequest(
         `/rest/v1/card_photos?card_id=eq.${card.id}&select=image_url`,
       )

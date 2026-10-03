@@ -98,6 +98,12 @@ export async function DELETE(
       return NextResponse.json({ error: 'This birthday card could not be found.' }, { status: 404 })
     }
 
+    // Orders are payment history; a card with orders is retained along with its assets.
+    const ordersResponse = await supabaseRequest(`/rest/v1/orders?card_id=eq.${card.id}&select=id&limit=1`)
+    if ((await ordersResponse.json() as { id: string }[]).length) {
+      return NextResponse.json({ error: 'This card has payment orders and cannot be deleted.' }, { status: 409 })
+    }
+
     const { url } = getSupabaseConfig()
     const assets = [...(card.card_photos ?? []).map(photo => photo.image_url), ...(card.music_url ? [card.music_url] : [])]
     for (const assetUrl of assets) {

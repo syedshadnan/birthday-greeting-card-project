@@ -41,6 +41,20 @@ type PendingOrder = {
     trusted_receiving_account: string | null
     event: { raw_message: string | null; received_at: string; processed_at: string | null } | null
   }
+  evidence_candidates: {
+    id: string
+    reason_code: string
+    amount_bdt: number | null
+    sender_phone: string | null
+    transaction_id: string | null
+    provider_timestamp: string | null
+    trusted_source: string | null
+    trusted_receiving_account: string | null
+    raw_message: string | null
+    amount_matches: boolean
+    sender_matches: boolean
+    account_matches: boolean
+  }[]
   cleanup: { eligible: boolean; reason: string }
 }
 type Verification = {
@@ -92,6 +106,7 @@ export default function AdminDashboard() {
   const [activeSection, setActiveSection] = useState<AdminSection>('home')
   const [reviewOrder, setReviewOrder] = useState<PendingOrder | null>(null)
   const [approvalReason, setApprovalReason] = useState('')
+  const [approvalEvidenceId, setApprovalEvidenceId] = useState('')
   const [approvingOrder, setApprovingOrder] = useState(false)
 
   const loadCards = useCallback(async (nextOffset: number) => {
@@ -147,7 +162,8 @@ export default function AdminDashboard() {
   }, [])
 
   const approveOrder = async () => {
-    if (!reviewOrder || approvalReason.trim().length < 10) return
+    const evidence = reviewOrder?.evidence_candidates.find(item => item.id === approvalEvidenceId)
+    if (!reviewOrder || !evidence || approvalReason.trim().length < 10) return
     const confirmation = [
       'Verify and approve this payment?',
       `Order ID: ${reviewOrder.id}`,
@@ -155,8 +171,10 @@ export default function AdminDashboard() {
       `Payment method: ${reviewOrder.payment_method}`,
       `Amount: ${reviewOrder.amount_bdt} ${reviewOrder.currency}`,
       `Receiving account: ${reviewOrder.payment_account?.account_number || 'Unavailable'}`,
-      `Current verification status/reason: ${reviewOrder.verification.verification_status || 'NO EVIDENCE'} / ${reviewOrder.verification.reason}`,
-      `Evidence: ${reviewOrder.verification.event || reviewOrder.verification.provider ? 'Available' : 'No payment evidence has been received yet.'}`,
+      `Evidence transaction ID: ${evidence.transaction_id}`,
+      `Evidence sender / amount: ${evidence.sender_phone} / ${evidence.amount_bdt} BDT`,
+      `Evidence receiving account: ${evidence.trusted_source} / ${evidence.trusted_receiving_account}`,
+      ...(evidence.sender_matches ? [] : ['WARNING: SMS sender does not match the customer wallet on this order.']),
     ].join('\n')
     if (!window.confirm(confirmation)) return
     setApprovingOrder(true)
@@ -165,12 +183,13 @@ export default function AdminDashboard() {
       const response = await fetch(`/api/admin/orders/${reviewOrder.id}/approve`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reason: approvalReason.trim() }),
+        body: JSON.stringify({ verificationId: evidence.id, reason: approvalReason.trim() }),
       })
       const result: { error?: string } = await response.json()
       if (!response.ok) throw new Error(result.error || 'The payment could not be approved.')
       setReviewOrder(null)
       setApprovalReason('')
+      setApprovalEvidenceId('')
       await loadOrders()
       await loadVerifications()
     } catch (cause) {
@@ -365,6 +384,7 @@ export default function AdminDashboard() {
       {activeSection === 'accounts' && <AdminPaymentAccounts />}
       {activeSection === 'verification' && <section className="admin-payments">
         <div className="admin-heading"><div><span className="eyebrow">PHASE 9 VERIFICATION</span><h2>Webhook evidence</h2><p>Permanent evidence and server-produced verification outcomes. Unsupported or untrusted events are never auto-approved.</p></div><button className="button outline" type="button" disabled={loadingVerifications} onClick={() => void loadVerifications()}>{loadingVerifications ? 'Loading…' : 'Refresh'}</button></div>
+        {error && <p className="form-error" role="alert">{error}</p>}
         {!verifications.length ? <div className="payment-box"><p>{loadingVerifications ? 'Loading verification evidence…' : 'No webhook verification evidence.'}</p></div> : <div className="admin-payments">{verifications.map(item => {
           const label = item.order?.payment_verification_source === 'MANUAL_ADMIN' ? '🛡️ MANUALLY APPROVED' : item.verification_status === 'verified' ? '✅ AUTO VERIFIED / PAID' : item.verification_status === 'duplicate' ? '♻️ DUPLICATE' : item.verification_status === 'invalid' ? '❌ INVALID' : item.verification_status === 'unmatched' ? '⚠️ UNMATCHED' : '⚠️ NEEDS REVIEW'
           return <article className="admin-payment" key={item.id}>
@@ -382,7 +402,10 @@ export default function AdminDashboard() {
             {item.verification_status === 'needs_review' && item.order && <button className="button outline" type="button" onClick={() => {
               const reason = window.prompt('Enter the evidence supporting this approval (minimum 10 characters).')
               if (!reason) return
-              void fetch('/api/admin/verifications', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ verificationId: item.id, reason }) }).then(() => void loadVerifications())
+              void fetch('/api/admin/verifications', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ verificationId: item.id, reason }) }).then(async response => {
+                if (!response.ok) setError((await response.json() as { error?: string }).error || 'The payment could not be approved.')
+                await Promise.all([loadVerifications(), loadOrders()])
+              })
             }}>Approve with evidence</button>}
           </article>
         })}</div>}
@@ -401,7 +424,7 @@ export default function AdminDashboard() {
             <div><dt>Created</dt><dd>{displayDate(order.created_at)}</dd></div>
           </dl>
           <div className="admin-order-review-summary"><strong>Pending reason: {order.verification.reason_code}</strong><p>{order.verification.reason}</p><span>{order.verification.event || order.verification.provider ? 'Payment evidence received.' : 'No payment evidence has been received yet.'}</span></div>
-          <button className="button outline" type="button" onClick={() => { setReviewOrder(order); setApprovalReason('') }}>Review &amp; Verify Payment</button>
+          <button className="button outline" type="button" onClick={() => { setReviewOrder(order); setApprovalReason(''); setApprovalEvidenceId(''); setError('') }}>Review &amp; Verify Payment</button>
         </article>)}</div>}
       </section>}
       {activeSection === 'legacy' && <section className="admin-section admin-legacy"><div className="admin-section-heading"><div><span className="eyebrow">LEGACY PAYMENTS</span><h2>Historical records</h2><p>Legacy payment records are preserved and are not modified by this dashboard.</p></div></div><div className="payment-box"><p>Legacy payment management remains read-only/disabled. Historical records are retained.</p></div></section>}
@@ -458,9 +481,17 @@ export default function AdminDashboard() {
             <div><dt>Trusted source / receiving account</dt><dd>{reviewOrder.verification.trusted_source || 'Unknown'} / {reviewOrder.verification.trusted_receiving_account || 'Unknown'}</dd></div>
             <div><dt>Matching result</dt><dd>{reviewOrder.verification.event ? 'Evidence is associated with this order.' : 'No matching evidence is available.'}</dd></div>
           </dl>
-          <label className="admin-review-reason">Approval reason<textarea value={approvalReason} onChange={event => setApprovalReason(event.target.value)} placeholder="Explain why you are manually approving this pending order." rows={4} /></label>
-          <p className="admin-review-warning">This is an administrative override. Automatic verification requirements are not bypassed silently, and the approval will be permanently audited.</p>
-          <div className="admin-modal-actions"><button className="button outline" type="button" onClick={() => setReviewOrder(null)}>Cancel</button><button className="button" type="button" disabled={approvingOrder || approvalReason.trim().length < 10} onClick={() => void approveOrder()}>{approvingOrder ? 'Approving…' : 'Approve Payment'}</button></div>
+          <fieldset className="admin-review-reason">
+            <legend>Payment evidence (required)</legend>
+            {!reviewOrder.evidence_candidates.length ? <p>No unconsumed {reviewOrder.payment_method} SMS evidence is available. Approval requires a received SMS.</p> : reviewOrder.evidence_candidates.map(item => <label key={item.id}>
+              <input type="radio" name="approval-evidence" value={item.id} checked={approvalEvidenceId === item.id} onChange={() => setApprovalEvidenceId(item.id)} />
+              <span><strong>{item.transaction_id}</strong> · {item.amount_bdt ?? '?'} BDT{item.amount_matches ? '' : ' ✗ amount'} · sender {item.sender_phone || 'unknown'}{item.sender_matches ? ' ✓' : ' ✗ differs from customer wallet'} · {item.trusted_source || '?'} / {item.trusted_receiving_account || '?'}{item.account_matches ? ' ✓' : ' ✗ receiving account'} · {item.reason_code}<br /><small>{item.raw_message || 'Raw SMS unavailable'}</small></span>
+            </label>)}
+          </fieldset>
+          <label className="admin-review-reason">Approval reason<textarea value={approvalReason} onChange={event => setApprovalReason(event.target.value)} placeholder="Explain why this evidence pays for this pending order." rows={4} /></label>
+          <p className="admin-review-warning">Approval is bound to the selected SMS evidence. The server re-checks amount, provider, receiving account, transaction-ID reuse, and card payment status, and permanently audits the approval.</p>
+          {error && <p className="form-error" role="alert">{error}</p>}
+          <div className="admin-modal-actions"><button className="button outline" type="button" onClick={() => setReviewOrder(null)}>Cancel</button><button className="button" type="button" disabled={approvingOrder || !approvalEvidenceId || approvalReason.trim().length < 10} onClick={() => void approveOrder()}>{approvingOrder ? 'Approving…' : 'Approve Payment'}</button></div>
         </section>
       </div>}
     </main>
