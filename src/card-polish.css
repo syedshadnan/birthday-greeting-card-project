@@ -226,6 +226,16 @@ body {
 .admin-payment dl { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 14px 20px; margin: 18px 0; }
 .admin-payment dl div { min-width: 0; }
 .admin-payment dt { color: #747b88; font: 10px 'DM Mono'; text-transform: uppercase; letter-spacing: .4px; }
+.admin-order-review-summary { margin: 16px 0; padding: 14px; border: 1px solid #eadfc9; border-radius: 10px; background: #fffaf0; }
+.admin-order-review-summary strong { color: var(--ink); font: 11px 'DM Mono'; letter-spacing: .35px; text-transform: uppercase; }
+.admin-order-review-summary p { margin: 7px 0 0; color: #68717f; line-height: 1.5; }
+.admin-order-review-summary span { display: block; margin-top: 8px; color: #8a6b39; font-size: 12px; }
+.admin-payment-review-modal { width: min(100%, 760px); max-height: min(90svh, 900px); overflow: auto; }
+.admin-payment-review-modal h2 { margin: 4px 0 0; }
+.admin-review-reason { display: block; margin-top: 18px; color: #555f70; font: 11px 'DM Mono'; letter-spacing: .4px; text-transform: uppercase; }
+.admin-review-reason textarea { display: block; width: 100%; box-sizing: border-box; margin-top: 8px; padding: 12px; border: 1px solid #d8cebd; border-radius: 9px; background: #fffdf8; color: var(--ink); font: inherit; resize: vertical; }
+.admin-review-warning { color: #8a6b39; font-size: 12px; line-height: 1.5; }
+.admin-modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
 .admin-payment dd { margin: 5px 0 0; font-size: 14px; overflow-wrap: anywhere; }
 .admin-payment>a { display: inline-block; margin: 4px 0 14px; color: #a44f46; font-size: 13px; font-weight: 600; }
 .admin-payment-actions { display: flex; flex-wrap: wrap; gap: 10px; padding-top: 14px; border-top: 1px solid var(--line); }

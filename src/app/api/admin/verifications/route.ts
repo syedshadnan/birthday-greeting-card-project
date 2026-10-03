@@ -9,13 +9,13 @@ export async function GET(request: NextRequest) {
     const [verificationResponse, eventResponse, orderResponse, accountResponse] = await Promise.all([
       supabaseRequest('/rest/v1/payment_verifications?select=*&order=created_at.desc'),
       supabaseRequest('/rest/v1/webhook_events?select=id,external_event_id,raw_message,received_at,processed_at,verification_status,verification_reason_code,verification_reason,trusted_source,trusted_receiving_account'),
-      supabaseRequest('/rest/v1/orders?select=id,payment_method,customer_phone,amount_bdt,status,payment_account_id'),
+      supabaseRequest('/rest/v1/orders?select=id,payment_method,customer_phone,amount_bdt,status,payment_account_id,payment_verification_source,paid_at'),
       supabaseRequest('/rest/v1/payment_accounts?select=id,account_number,method'),
     ])
     const [verifications, events, orders, accounts] = await Promise.all([
       verificationResponse.json() as Promise<Record<string, unknown>[]>,
       eventResponse.json() as Promise<Record<string, unknown>[]>,
-      orderResponse.json() as Promise<{ id: string; payment_method: string; customer_phone: string; amount_bdt: number; status: string; payment_account_id: string | null }[]>,
+      orderResponse.json() as Promise<{ id: string; payment_method: string; customer_phone: string; amount_bdt: number; status: string; payment_account_id: string | null; payment_verification_source: string | null; paid_at: string | null }[]>,
       accountResponse.json() as Promise<{ id: string; account_number: string; method: string }[]>,
     ])
     const eventsById = new Map(events.map(event => [String(event.id), event]))
@@ -32,6 +32,13 @@ export async function GET(request: NextRequest) {
           receiving_account: order?.payment_account_id ? accountsById.get(order.payment_account_id) ?? null : null,
         }
       }),
+      paidOrders: orders.filter(order => order.status === 'paid').map(order => ({
+        id: order.id,
+        payment_method: order.payment_method,
+        amount_bdt: order.amount_bdt,
+        payment_verification_source: order.payment_verification_source,
+        paid_at: order.paid_at,
+      })),
     }, { headers: { 'Cache-Control': 'no-store, private' } })
   } catch (error) {
     console.error('Could not load payment verification evidence.', error)

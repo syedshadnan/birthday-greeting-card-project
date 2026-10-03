@@ -13,9 +13,9 @@ export async function GET(request: NextRequest) {
       supabaseRequest('/rest/v1/cards?select=id,public_id,recipient_name'),
       supabaseRequest('/rest/v1/payment_accounts?select=id,account_number,method'),
       supabaseRequest('/rest/v1/profiles?select=id,email,full_name'),
-      supabaseRequest('/rest/v1/payment_verifications?select=order_id'),
+      supabaseRequest('/rest/v1/payment_verifications?select=id,order_id,verification_status,reason_code,reason,provider,amount_bdt,sender_phone,transaction_id,provider_timestamp,trusted_source,trusted_receiving_account,webhook_event_id,created_at&order=created_at.desc'),
       supabaseRequest('/rest/v1/payment_verification_audit?select=order_id'),
-      supabaseRequest('/rest/v1/webhook_events?select=matched_order_id'),
+      supabaseRequest('/rest/v1/webhook_events?select=id,matched_order_id,raw_message,received_at,processed_at&order=received_at.desc'),
     ])
 
     const [orders, cards, accounts, profiles, verifications, audits, events] = await Promise.all([
@@ -23,9 +23,9 @@ export async function GET(request: NextRequest) {
       cardsResponse.json() as Promise<{ id: string; public_id: string; recipient_name: string | null }[]>,
       accountsResponse.json() as Promise<{ id: string; account_number: string; method: string }[]>,
       profilesResponse.json() as Promise<{ id: string; email: string | null; full_name: string | null }[]>,
-      verificationsResponse.json() as Promise<{ order_id: string | null }[]>,
+      verificationsResponse.json() as Promise<{ id: string; order_id: string | null; verification_status: string; reason_code: string; reason: string; provider: string | null; amount_bdt: number | null; sender_phone: string | null; transaction_id: string | null; provider_timestamp: string | null; trusted_source: string | null; trusted_receiving_account: string | null; webhook_event_id: string; created_at: string }[]>,
       auditsResponse.json() as Promise<{ order_id: string }[]>,
-      eventsResponse.json() as Promise<{ matched_order_id: string | null }[]>,
+      eventsResponse.json() as Promise<{ id: string; matched_order_id: string | null; raw_message: string | null; received_at: string; processed_at: string | null }[]>,
     ])
 
     const cardsById = new Map(cards.map(card => [card.id, card]))
@@ -36,12 +36,38 @@ export async function GET(request: NextRequest) {
       ...audits.map(item => item.order_id),
       ...events.flatMap(item => item.matched_order_id ? [item.matched_order_id] : []),
     ])
+    const eventById = new Map(events.map(event => [event.id, event]))
+    const verificationByOrderId = new Map<string, typeof verifications[number]>()
+    verifications.forEach(item => {
+      if (item.order_id && !verificationByOrderId.has(item.order_id)) verificationByOrderId.set(item.order_id, item)
+    })
+    const eventByOrderId = new Map<string, typeof events[number]>()
+    events.forEach(item => {
+      if (item.matched_order_id && !eventByOrderId.has(item.matched_order_id)) eventByOrderId.set(item.matched_order_id, item)
+    })
     return NextResponse.json({
       orders: orders.map(order => ({
         ...order,
         card: cardsById.get(order.card_id) ?? null,
         payment_account: order.payment_account_id ? accountsById.get(order.payment_account_id) ?? null : null,
         customer: profilesById.get(order.user_id) ?? { id: order.user_id, email: null, full_name: null },
+        verification: (() => {
+          const item = verificationByOrderId.get(order.id)
+          const event = item ? eventById.get(item.webhook_event_id) : eventByOrderId.get(order.id)
+          return item ? { ...item, event: event ?? null } : {
+            verification_status: null,
+            reason_code: 'NO_PAYMENT_EVIDENCE',
+            reason: 'No payment evidence has been received yet.',
+            provider: null,
+            amount_bdt: null,
+            sender_phone: null,
+            transaction_id: null,
+            provider_timestamp: null,
+            trusted_source: null,
+            trusted_receiving_account: null,
+            event: event ?? null,
+          }
+        })(),
         cleanup: evidenceOrderIds.has(order.id)
           ? { eligible: false, reason: 'Payment verification or webhook evidence is attached to this order.' }
           : { eligible: true, reason: 'Pending order has no payment verification or webhook evidence.' },

@@ -136,7 +136,7 @@ export async function POST(request: Request) {
           reason = 'Payment matched one eligible pending order with trusted provider and receiving-account metadata.'
           const paidResponse = await supabaseRequest(`/rest/v1/orders?id=eq.${orders[0].id}&status=eq.pending`, {
             method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status: 'paid', paid_at: new Date().toISOString(), updated_at: new Date().toISOString() }),
+            body: JSON.stringify({ status: 'paid', paid_at: new Date().toISOString(), payment_verification_source: 'AUTOMATIC', updated_at: new Date().toISOString() }),
           })
           const paidOrders = await paidResponse.json() as { id: string }[]
           if (paidOrders.length !== 1) {

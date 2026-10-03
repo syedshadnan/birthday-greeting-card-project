@@ -20,6 +20,7 @@ type PendingOrder = {
   user_id: string
   amount_bdt: number
   currency: string
+  status: string
   payment_method: string
   customer_phone: string
   payment_submitted_at: string | null
@@ -27,6 +28,19 @@ type PendingOrder = {
   card: { public_id: string; recipient_name: string | null } | null
   payment_account: { account_number: string } | null
   customer: { email: string | null; full_name: string | null }
+  verification: {
+    verification_status: string | null
+    reason_code: string
+    reason: string
+    provider: string | null
+    amount_bdt: number | null
+    sender_phone: string | null
+    transaction_id: string | null
+    provider_timestamp: string | null
+    trusted_source: string | null
+    trusted_receiving_account: string | null
+    event: { raw_message: string | null; received_at: string; processed_at: string | null } | null
+  }
   cleanup: { eligible: boolean; reason: string }
 }
 type Verification = {
@@ -42,8 +56,9 @@ type Verification = {
   trusted_source: string | null
   trusted_receiving_account: string | null
   event: { raw_message: string | null; received_at: string; processed_at: string | null } | null
-  order: { id: string; payment_method: string; customer_phone: string; amount_bdt: number; status: string } | null
+  order: { id: string; payment_method: string; customer_phone: string; amount_bdt: number; status: string; payment_verification_source: string | null } | null
 }
+type PaidOrder = { id: string; payment_method: string; amount_bdt: number; payment_verification_source: string | null; paid_at: string | null }
 type AccountSummary = { method: 'bkash' | 'nagad'; account_number: string; is_active: boolean }
 type AdminSection = 'home' | 'accounts' | 'verification' | 'orders' | 'legacy' | 'audit' | 'cards'
 
@@ -69,11 +84,15 @@ export default function AdminDashboard() {
   const [orders, setOrders] = useState<PendingOrder[]>([])
   const [loadingOrders, setLoadingOrders] = useState(false)
   const [verifications, setVerifications] = useState<Verification[]>([])
+  const [paidOrders, setPaidOrders] = useState<PaidOrder[]>([])
   const [loadingVerifications, setLoadingVerifications] = useState(false)
   const [selectedOrders, setSelectedOrders] = useState<string[]>([])
   const [cleaningOrders, setCleaningOrders] = useState(false)
   const [accountSummaries, setAccountSummaries] = useState<AccountSummary[]>([])
   const [activeSection, setActiveSection] = useState<AdminSection>('home')
+  const [reviewOrder, setReviewOrder] = useState<PendingOrder | null>(null)
+  const [approvalReason, setApprovalReason] = useState('')
+  const [approvingOrder, setApprovingOrder] = useState(false)
 
   const loadCards = useCallback(async (nextOffset: number) => {
     setLoadingCards(true)
@@ -97,10 +116,11 @@ export default function AdminDashboard() {
     setLoadingVerifications(true)
     try {
       const response = await fetch('/api/admin/verifications', { cache: 'no-store' })
-      const result: { verifications?: Verification[]; error?: string } = await response.json()
+      const result: { verifications?: Verification[]; paidOrders?: PaidOrder[]; error?: string } = await response.json()
       if (response.status === 401) { setAuthenticated(false); return }
       if (!response.ok) throw new Error(result.error || 'Could not load verification evidence.')
       setVerifications(result.verifications ?? [])
+      setPaidOrders(result.paidOrders ?? [])
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not load verification evidence.')
     } finally {
@@ -125,6 +145,40 @@ export default function AdminDashboard() {
       setLoadingOrders(false)
     }
   }, [])
+
+  const approveOrder = async () => {
+    if (!reviewOrder || approvalReason.trim().length < 10) return
+    const confirmation = [
+      'Verify and approve this payment?',
+      `Order ID: ${reviewOrder.id}`,
+      `Customer: ${reviewOrder.customer.full_name || reviewOrder.customer.email || reviewOrder.user_id}`,
+      `Payment method: ${reviewOrder.payment_method}`,
+      `Amount: ${reviewOrder.amount_bdt} ${reviewOrder.currency}`,
+      `Receiving account: ${reviewOrder.payment_account?.account_number || 'Unavailable'}`,
+      `Current verification status/reason: ${reviewOrder.verification.verification_status || 'NO EVIDENCE'} / ${reviewOrder.verification.reason}`,
+      `Evidence: ${reviewOrder.verification.event || reviewOrder.verification.provider ? 'Available' : 'No payment evidence has been received yet.'}`,
+    ].join('\n')
+    if (!window.confirm(confirmation)) return
+    setApprovingOrder(true)
+    setError('')
+    try {
+      const response = await fetch(`/api/admin/orders/${reviewOrder.id}/approve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: approvalReason.trim() }),
+      })
+      const result: { error?: string } = await response.json()
+      if (!response.ok) throw new Error(result.error || 'The payment could not be approved.')
+      setReviewOrder(null)
+      setApprovalReason('')
+      await loadOrders()
+      await loadVerifications()
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'The payment could not be approved.')
+    } finally {
+      setApprovingOrder(false)
+    }
+  }
 
   useEffect(() => {
     fetch('/api/admin/session')
@@ -246,11 +300,11 @@ export default function AdminDashboard() {
     }
 
   const overview = {
-    paid: verifications.filter(item => item.verification_status === 'verified').length,
+    paid: paidOrders.length,
     pending: orders.length,
     review: verifications.filter(item => item.verification_status === 'needs_review').length,
     unmatchedInvalid: verifications.filter(item => item.verification_status === 'unmatched' || item.verification_status === 'invalid').length,
-    revenue: verifications.filter(item => item.verification_status === 'verified').reduce((sum, item) => sum + (item.amount_bdt ?? 0), 0),
+    revenue: paidOrders.reduce((sum, item) => sum + item.amount_bdt, 0),
   }
 
   if (checking) return <main className="payment-page"><p>Checking admin sign-in…</p></main>
@@ -298,8 +352,8 @@ export default function AdminDashboard() {
         <div className="admin-heading"><div><span className="eyebrow">OVERVIEW</span><h1>Payment <i>control room.</i></h1><p>Verification evidence, payment attempts, and trusted receiving accounts in one place.</p></div></div>
         <div className="admin-summary-grid">
           <div className="admin-summary-card"><span>Verified revenue</span><strong>{overview.revenue} BDT</strong></div>
-          <div className="admin-summary-card"><span>Verified bKash</span><strong>{verifications.filter(item => item.verification_status === 'verified' && item.provider === 'bkash').reduce((sum, item) => sum + (item.amount_bdt ?? 0), 0)} BDT</strong></div>
-          <div className="admin-summary-card"><span>Verified Nagad</span><strong>{verifications.filter(item => item.verification_status === 'verified' && item.provider === 'nagad').reduce((sum, item) => sum + (item.amount_bdt ?? 0), 0)} BDT</strong></div>
+          <div className="admin-summary-card"><span>Verified bKash</span><strong>{paidOrders.filter(item => item.payment_method === 'bkash').reduce((sum, item) => sum + item.amount_bdt, 0)} BDT</strong></div>
+          <div className="admin-summary-card"><span>Verified Nagad</span><strong>{paidOrders.filter(item => item.payment_method === 'nagad').reduce((sum, item) => sum + item.amount_bdt, 0)} BDT</strong></div>
           <div className="admin-summary-card"><span>Pending verification</span><strong>{overview.review + overview.pending}</strong></div>
           <div className="admin-summary-card"><span>Active bKash</span><strong>{accountSummaries.find(account => account.method === 'bkash' && account.is_active)?.account_number ?? 'Not configured'}</strong></div>
           <div className="admin-summary-card"><span>Active Nagad</span><strong>{accountSummaries.find(account => account.method === 'nagad' && account.is_active)?.account_number ?? 'Not configured'}</strong></div>
@@ -312,7 +366,7 @@ export default function AdminDashboard() {
       {activeSection === 'verification' && <section className="admin-payments">
         <div className="admin-heading"><div><span className="eyebrow">PHASE 9 VERIFICATION</span><h2>Webhook evidence</h2><p>Permanent evidence and server-produced verification outcomes. Unsupported or untrusted events are never auto-approved.</p></div><button className="button outline" type="button" disabled={loadingVerifications} onClick={() => void loadVerifications()}>{loadingVerifications ? 'Loading…' : 'Refresh'}</button></div>
         {!verifications.length ? <div className="payment-box"><p>{loadingVerifications ? 'Loading verification evidence…' : 'No webhook verification evidence.'}</p></div> : <div className="admin-payments">{verifications.map(item => {
-          const label = item.verification_status === 'verified' ? '✅ AUTO VERIFIED / PAID' : item.verification_status === 'duplicate' ? '♻️ DUPLICATE' : item.verification_status === 'invalid' ? '❌ INVALID' : item.verification_status === 'unmatched' ? '⚠️ UNMATCHED' : '⚠️ NEEDS REVIEW'
+          const label = item.order?.payment_verification_source === 'MANUAL_ADMIN' ? '🛡️ MANUALLY APPROVED' : item.verification_status === 'verified' ? '✅ AUTO VERIFIED / PAID' : item.verification_status === 'duplicate' ? '♻️ DUPLICATE' : item.verification_status === 'invalid' ? '❌ INVALID' : item.verification_status === 'unmatched' ? '⚠️ UNMATCHED' : '⚠️ NEEDS REVIEW'
           return <article className="admin-payment" key={item.id}>
             <div className="admin-payment-heading"><div><span className="eyebrow">{label}</span><h3>{item.reason_code}</h3><p>{item.reason}</p></div><span className="payment-status">{item.verification_status}</span></div>
             <dl>
@@ -346,6 +400,8 @@ export default function AdminDashboard() {
             <div><dt>Submitted</dt><dd>{order.payment_submitted_at ? displayDate(order.payment_submitted_at) : 'Not submitted'}</dd></div>
             <div><dt>Created</dt><dd>{displayDate(order.created_at)}</dd></div>
           </dl>
+          <div className="admin-order-review-summary"><strong>Pending reason: {order.verification.reason_code}</strong><p>{order.verification.reason}</p><span>{order.verification.event || order.verification.provider ? 'Payment evidence received.' : 'No payment evidence has been received yet.'}</span></div>
+          <button className="button outline" type="button" onClick={() => { setReviewOrder(order); setApprovalReason('') }}>Review &amp; Verify Payment</button>
         </article>)}</div>}
       </section>}
       {activeSection === 'legacy' && <section className="admin-section admin-legacy"><div className="admin-section-heading"><div><span className="eyebrow">LEGACY PAYMENTS</span><h2>Historical records</h2><p>Legacy payment records are preserved and are not modified by this dashboard.</p></div></div><div className="payment-box"><p>Legacy payment management remains read-only/disabled. Historical records are retained.</p></div></section>}
@@ -380,6 +436,33 @@ export default function AdminDashboard() {
         <button className="button outline" type="button" disabled={loadingCards||offset+cards.length>=total} onClick={()=>void loadCards(offset+pageSize)}>Next →</button>
       </div>
       </section>}
+      {reviewOrder && <div className="admin-modal-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) setReviewOrder(null) }}>
+        <section className="admin-modal admin-payment-review-modal" role="dialog" aria-modal="true" aria-labelledby="payment-review-title">
+          <div className="admin-payment-heading"><div><span className="eyebrow">MANUAL ADMIN REVIEW</span><h2 id="payment-review-title">Review &amp; Verify Payment</h2></div><button className="button outline" type="button" onClick={() => setReviewOrder(null)}>Close</button></div>
+          <dl>
+            <div><dt>Order ID</dt><dd>{reviewOrder.id}</dd></div>
+            <div><dt>Card ID</dt><dd>{reviewOrder.card?.public_id || 'Unavailable'}</dd></div>
+            <div><dt>Customer</dt><dd>{reviewOrder.customer.full_name || reviewOrder.customer.email || reviewOrder.user_id}</dd></div>
+            <div><dt>Customer wallet</dt><dd>{reviewOrder.customer_phone}</dd></div>
+            <div><dt>Payment / amount</dt><dd>{reviewOrder.payment_method} / {reviewOrder.amount_bdt} {reviewOrder.currency}</dd></div>
+            <div><dt>Receiving account</dt><dd>{reviewOrder.payment_account?.account_number || 'Unavailable'}</dd></div>
+            <div><dt>Created / submitted</dt><dd>{displayDate(reviewOrder.created_at)} / {reviewOrder.payment_submitted_at ? displayDate(reviewOrder.payment_submitted_at) : 'Not submitted'}</dd></div>
+            <div><dt>Current status</dt><dd>{reviewOrder.status}</dd></div>
+          </dl>
+          <div className="admin-order-review-summary"><strong>{reviewOrder.verification.verification_status || 'NO EVIDENCE'} · {reviewOrder.verification.reason_code}</strong><p>{reviewOrder.verification.reason}</p></div>
+          <dl>
+            <div><dt>Webhook evidence</dt><dd>{reviewOrder.verification.event ? 'Received' : 'None received'}</dd></div>
+            <div><dt>Parsed provider / amount</dt><dd>{reviewOrder.verification.provider || 'Unknown'} / {reviewOrder.verification.amount_bdt ?? 'Unknown'} BDT</dd></div>
+            <div><dt>Parsed sender / transaction</dt><dd>{reviewOrder.verification.sender_phone || 'Unknown'} / {reviewOrder.verification.transaction_id || 'Missing'}</dd></div>
+            <div><dt>SMS timestamp</dt><dd>{reviewOrder.verification.provider_timestamp || 'Unknown'}</dd></div>
+            <div><dt>Trusted source / receiving account</dt><dd>{reviewOrder.verification.trusted_source || 'Unknown'} / {reviewOrder.verification.trusted_receiving_account || 'Unknown'}</dd></div>
+            <div><dt>Matching result</dt><dd>{reviewOrder.verification.event ? 'Evidence is associated with this order.' : 'No matching evidence is available.'}</dd></div>
+          </dl>
+          <label className="admin-review-reason">Approval reason<textarea value={approvalReason} onChange={event => setApprovalReason(event.target.value)} placeholder="Explain why you are manually approving this pending order." rows={4} /></label>
+          <p className="admin-review-warning">This is an administrative override. Automatic verification requirements are not bypassed silently, and the approval will be permanently audited.</p>
+          <div className="admin-modal-actions"><button className="button outline" type="button" onClick={() => setReviewOrder(null)}>Cancel</button><button className="button" type="button" disabled={approvingOrder || approvalReason.trim().length < 10} onClick={() => void approveOrder()}>{approvingOrder ? 'Approving…' : 'Approve Payment'}</button></div>
+        </section>
+      </div>}
     </main>
   </>
 }
