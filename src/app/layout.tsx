@@ -8,16 +8,16 @@ const siteUrl = getSiteUrl()
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
-  title: { default: 'Create Beautiful Birthday Cards Online — Free | BirthdaySmile', template: '%s | BirthdaySmile' },
-  description: 'Create personalized digital birthday cards with photos, music, messages, and beautiful animations. Free to use.',
+  title: { default: 'BirthdaySmile — Create Beautiful Digital Birthday Cards', template: '%s | BirthdaySmile' },
+  description: 'Create beautiful digital birthday cards with photos, music, messages, and animations. Make a personal birthday surprise with BirthdaySmile.',
   keywords: [
     'birthday card',
     'digital birthday card',
     'online birthday card maker',
-    'free animated birthday card',
+    'animated birthday card maker',
     'birthday card with music and photos',
     'happy birthday card maker',
-    'BirthdaySmile cards',
+    'personalized birthday cards',
   ],
   authors: [{ name: 'BirthdaySmile' }],
   creator: 'BirthdaySmile',
@@ -25,14 +25,14 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     siteName: 'BirthdaySmile',
-    title: 'Create Beautiful Birthday Cards Online — Free',
-    description: 'Personal birthday cards with photos, music, and beautiful animations.',
+    title: 'BirthdaySmile — Create Beautiful Digital Birthday Cards',
+    description: 'Create a personal birthday card with photos, music, messages, and beautiful animations.',
     url: siteUrl,
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Create Beautiful Birthday Cards Online — Free | BirthdaySmile',
-    description: 'Personal birthday cards with photos, music, and beautiful animations.',
+    title: 'BirthdaySmile — Create Beautiful Digital Birthday Cards',
+    description: 'Create a personal birthday card with photos, music, messages, and beautiful animations.',
   },
   verification: {
     google: '7Jw7uZ0XkzPcmhIVnydOHgIf5JbvhR9li3dXpWHKTqs',
@@ -44,12 +44,12 @@ const jsonLd = {
   '@type': 'WebApplication',
   name: 'BirthdaySmile',
   url: siteUrl,
-  description: 'Create personalized digital birthday cards with photos, music, messages, and beautiful animations. Free to use.',
+  description: 'Create beautiful digital birthday cards with photos, music, messages, and animations. Make a personal birthday surprise with BirthdaySmile.',
   applicationCategory: 'MultimediaApplication',
   operatingSystem: 'All',
   offers: {
     '@type': 'Offer',
-    price: '0',
+    price: '99',
     priceCurrency: 'USD',
   },
 }

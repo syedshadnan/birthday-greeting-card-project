@@ -11,6 +11,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
     '/birthday-cards/romantic',
     '/birthday-cards/cartoon',
     '/birthday-cards/best-friend',
+    '/privacy',
+    '/terms',
+    '/refund',
   ]
   return paths.map(path => ({
     url: `${base}${path}`,

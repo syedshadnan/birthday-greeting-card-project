@@ -118,7 +118,7 @@ function HeroSection(){
             <i style={{ background: '#f6d48f' }}></i>
             <i style={{ background: '#b9d3b0' }}></i>
           </div>
-          <span><b>Free forever.</b> No account needed to preview</span>
+          <span>No account needed to preview</span>
         </div>
       </div>
 
@@ -205,7 +205,7 @@ function ClassicTemplateSection() {
 function Landing(){return <><Nav/><main className="landing-page"><HeroSection/>
 <FeaturedCardsSection/>
 <section className="how" id="how" data-reveal><span className="eyebrow">EASY AS 1, 2, 3</span><h2>A little love goes<br/>a <i>long</i> way.</h2><div className="steps">{['Pick a feeling','Make it personal','Send some joy'].map((title,index)=><article data-reveal key={title}><b>0{index+1}</b><span>{['\u2726','\u2661','\u2197'][index]}</span><h3>{title}</h3><p>{['Choose a design that sounds like you two.','Add your words, favorite photos, and a song.','Share one special link. No app required.'][index]}</p></article>)}</div></section>
-<section className="closing" data-reveal><p>THE BEST GIFTS ARE THE ONES THAT FEEL LIKE YOU.</p><h2>Ready to make<br/>someone <i>smile?</i></h2><Button onClick={()=>navigate('/templates')}>Start creating <b>&rarr;</b></Button></section></main><footer className="site-footer"><Brand/><span className="footer-note">Made for sweet moments.</span><nav className="footer-socials" aria-label="Creator links"><a href="https://www.linkedin.com/in/shadnancodes/" target="_blank" rel="noreferrer">LinkedIn <span aria-hidden="true">&nearr;</span></a><a href="https://github.com/syedshadnan" target="_blank" rel="noreferrer">GitHub <span aria-hidden="true">&nearr;</span></a></nav><span className="footer-copyright">&copy; Wishwell</span></footer></> }
+<section className="closing" data-reveal><p>THE BEST GIFTS ARE THE ONES THAT FEEL LIKE YOU.</p><h2>Ready to make<br/>someone <i>smile?</i></h2><Button onClick={()=>navigate('/templates')}>Start creating <b>&rarr;</b></Button></section></main><footer className="site-footer"><Brand/><span className="footer-note">Made for sweet moments.</span><nav className="footer-legal" aria-label="Legal information"><a href="/privacy">Privacy policy</a><a href="/terms">Terms of service</a><a href="/refund">Refund policy</a></nav><span className="footer-copyright">&copy; BirthdaySmile</span></footer></> }
 function CardPreview({data,hero=false,open=true}:{data:CardData;hero?:boolean;open?:boolean}){const t=getTemplate(data.template);return <div className={'card-preview '+t.className+(hero?' hero-preview':'')+(open?'':' closed')}><div className="card-decor d1">{t.emoji}</div><div className="card-decor d2">✦</div>{data.photos[0]&&<img className="card-photo main-photo" src={data.photos[0]} alt="Birthday memory"/>}{data.photos[1]&&<img className="card-photo second-photo" src={data.photos[1]} alt="Birthday memory"/>}<div className="card-content"><span>happy birthday</span><h3>{data.recipient||'Your favorite human'}</h3><p>{data.message||'A little note to make your day brighter.'}</p><small>{data.sender||'With love'}</small></div></div>}
 function Templates(){return <><Nav/><main className="gallery">
 <ClassicTemplateSection/>

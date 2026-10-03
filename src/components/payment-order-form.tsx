@@ -28,6 +28,8 @@ export default function PaymentOrderForm({ cardId }: { cardId: string }) {
   const [paid, setPaid] = useState(false)
   const [notice, setNotice] = useState('')
   const [copied, setCopied] = useState(false)
+  const [verificationWindow, setVerificationWindow] = useState(false)
+  const [verificationTimedOut, setVerificationTimedOut] = useState(false)
 
   const step = paid ? 4 : order ? 3 : method ? 2 : 1
   const selectedMethod = method ?? 'bkash'
@@ -73,6 +75,9 @@ export default function PaymentOrderForm({ cardId }: { cardId: string }) {
 
   const chooseMethod = (nextMethod: Method) => {
     setMethod(nextMethod)
+    setOrder(null)
+    setAccount(null)
+    setVerificationTimedOut(false)
     setNotice('')
   }
 
@@ -105,17 +110,36 @@ export default function PaymentOrderForm({ cardId }: { cardId: string }) {
   const submitted = async () => {
     if (!order) return
     setSubmitting(true)
+    setVerificationWindow(true)
+    setVerificationTimedOut(false)
     setNotice('')
     try {
       const response = await fetch(`/api/orders/${order.id}/submitted`, { method: 'POST' })
       const result = await response.json() as { order?: Order; error?: string }
       if (!response.ok || !result.order) throw new Error(result.error || 'The payment submission could not be recorded.')
       setOrder(result.order)
-      setNotice('Payment submitted — waiting for automatic verification.')
+      const startedAt = Date.now()
+      let verified = false
+      while (Date.now() - startedAt < 20_000) {
+        await new Promise(resolve => window.setTimeout(resolve, 2_000))
+        const accessResponse = await fetch(`/api/orders/access?cardId=${encodeURIComponent(cardId)}`, { cache: 'no-store' })
+        if (!accessResponse.ok) continue
+        const access = await accessResponse.json() as PaymentState
+        if (access.paid) {
+          verified = true
+          setPaid(true)
+          break
+        }
+      }
+      if (!verified) {
+        setVerificationTimedOut(true)
+        setNotice('Payment is still pending verification. We will keep checking securely.')
+      }
     } catch (error) {
       setNotice(error instanceof Error ? error.message : 'The payment submission could not be recorded.')
     } finally {
       setSubmitting(false)
+      setVerificationWindow(false)
     }
   }
 
@@ -149,7 +173,7 @@ export default function PaymentOrderForm({ cardId }: { cardId: string }) {
       </section>}
 
       {step === 2 && <section className="payment-step" aria-labelledby="wallet-heading">
-        <button className="payment-back" type="button" onClick={() => setMethod(null)}>← Change payment method</button>
+        <button className="payment-back" type="button" onClick={() => { setMethod(null); setNotice('') }}>← Change payment method</button>
         <span className="payment-step-label">STEP 2 · YOUR NUMBER</span>
         <h2 id="wallet-heading">Your {detail.label} number</h2>
         <p>Enter the wallet number you’ll use to send exactly 99 BDT.</p>
@@ -159,17 +183,18 @@ export default function PaymentOrderForm({ cardId }: { cardId: string }) {
       </section>}
 
       {step === 3 && account && order && <section className="payment-step" aria-labelledby="send-payment-heading">
-        <button className="payment-back" type="button" onClick={() => { setOrder(null); setAccount(null); setNotice('') }}>← Change payment method</button>
+        <button className="payment-back" type="button" onClick={() => { setOrder(null); setAccount(null); setMethod(null); setVerificationTimedOut(false); setNotice('') }}>← Change payment method</button>
         <span className="payment-step-label">STEP 3 · SEND PAYMENT</span>
         <h2 id="send-payment-heading">Send exactly ৳99</h2>
         <p>Use {detail.label} Send Money. The receiving number below is provided securely by BirthdaySmile.</p>
         <div className={`payment-instruction-card ${detail.accent}`}><small>SEND MONEY VIA {detail.label.toUpperCase()}</small><strong>৳99</strong><span>Send Money to</span><b>{account.accountNumber}</b><button type="button" onClick={() => void copyNumber()}>{copied ? 'Copied ✓' : 'Copy number'}</button></div>
         <ol className="payment-instructions"><li>Open your {detail.label} app.</li><li>Select Send Money.</li><li>Send exactly ৳99 to the number above.</li><li>Return here after sending.</li></ol>
-        {order.payment_submitted_at ? <p className="payment-status" role="status">✓ Payment submitted<br /><small>Waiting for automatic verification.</small></p> : <button className="button dark payment-continue" type="button" onClick={() => void submitted()} disabled={submitting}>{submitting ? 'Checking submission…' : 'I Have Sent Payment'}</button>}
+        {order.payment_submitted_at && !verificationWindow && !verificationTimedOut ? <p className="payment-status" role="status">✓ Payment submitted<br /><small>Waiting for automatic verification.</small></p> : <><button className="button dark payment-continue" type="button" onClick={() => void submitted()} disabled={submitting}>{submitting ? <><span className="payment-submit-spinner" aria-hidden="true" />Verifying payment…</> : 'I Have Sent Payment'}</button>{verificationTimedOut && <div className="payment-pending-help" role="status"><span>Still pending? We’re here to help.</span><a href="https://wa.me/8801874768164" target="_blank" rel="noreferrer">WhatsApp us</a></div>}</>}
       </section>}
 
-      {step === 4 && <section className="payment-step payment-success-step" aria-labelledby="verification-heading"><span className="payment-success-icon">✓</span><span className="payment-step-label">STEP 4 · VERIFICATION</span><h2 id="verification-heading">Payment verified</h2><p>Your card is ready to share.</p><div className="payment-success-actions"><a className="button dark" href={`/share/${cardId}`}>Share card</a><a className="button outline" href={`/card/${cardId}`}>View card</a></div></section>}
+      {step === 4 && <section className="payment-step payment-success-step" aria-labelledby="verification-heading"><button className="payment-back" type="button" onClick={() => setPaid(false)}>← Back to payment details</button><span className="payment-success-icon">✓</span><span className="payment-step-label">STEP 4 · VERIFICATION</span><h2 id="verification-heading">Payment verified</h2><p>Your card is ready to share.</p><div className="payment-success-actions"><a className="button dark" href={`/share/${cardId}`}>Share card</a><a className="button outline" href={`/card/${cardId}`}>View card</a></div></section>}
       {notice && <p className="form-error payment-notice" role="alert">{notice}</p>}
+      {verificationTimedOut && <a className="whatsapp-help" href="https://wa.me/8801874768164" target="_blank" rel="noreferrer" aria-label="Get payment help on WhatsApp">◔</a>}
     </div>
   )
 }

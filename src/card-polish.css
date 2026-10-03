@@ -236,6 +236,22 @@ body {
 .admin-review-reason textarea { display: block; width: 100%; box-sizing: border-box; margin-top: 8px; padding: 12px; border: 1px solid #d8cebd; border-radius: 9px; background: #fffdf8; color: var(--ink); font: inherit; resize: vertical; }
 .admin-review-warning { color: #8a6b39; font-size: 12px; line-height: 1.5; }
 .admin-modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
+.footer-legal { display: flex; flex-wrap: wrap; justify-content: center; gap: 16px; }
+.footer-legal a { color: inherit; text-decoration: none; }
+.footer-legal a:hover { text-decoration: underline; }
+.legal-page { min-height: 100svh; box-sizing: border-box; padding: 38px 20px 80px; color: var(--ink); }
+.legal-brand { display: inline-block; color: var(--ink); font: 600 20px 'Playfair Display'; text-decoration: none; }
+.legal-page article { width: min(100%, 760px); margin: 72px auto 0; }
+.legal-page h1 { margin: 8px 0 18px; font: 500 clamp(40px, 8vw, 68px) 'Playfair Display'; letter-spacing: -2px; }
+.legal-page h2 { margin: 34px 0 8px; font: 500 26px 'Playfair Display'; }
+.legal-page p { max-width: 680px; color: #68717f; line-height: 1.75; }
+.legal-note { padding: 16px 18px; border-left: 3px solid #d56954; background: #fff0eb; color: #873c35 !important; }
+.payment-submit-spinner { display: inline-block; width: 16px; height: 16px; margin-right: 8px; border: 2px solid #ffffff80; border-top-color: #fff; border-radius: 50%; vertical-align: -3px; animation: paymentSpin .7s linear infinite; }
+.payment-pending-help { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-top: 16px; padding: 14px 16px; border: 1px solid #eadbd0; border-radius: 14px; background: #fffaf4; color: #6e6870; font-size: 13px; }
+.payment-pending-help a { color: #b14e45; font-weight: 700; text-decoration: none; }
+.whatsapp-help { position: fixed; right: 22px; bottom: 22px; z-index: 30; display: grid; width: 58px; height: 58px; place-items: center; border-radius: 50%; background: #25d366; color: #fff; box-shadow: 0 10px 28px #174d2b40; font-size: 28px; text-decoration: none; transition: transform .2s ease; }
+.whatsapp-help:hover { transform: translateY(-3px) scale(1.04); }
+@keyframes paymentSpin { to { transform: rotate(360deg); } }
 .admin-payment dd { margin: 5px 0 0; font-size: 14px; overflow-wrap: anywhere; }
 .admin-payment>a { display: inline-block; margin: 4px 0 14px; color: #a44f46; font-size: 13px; font-weight: 600; }
 .admin-payment-actions { display: flex; flex-wrap: wrap; gap: 10px; padding-top: 14px; border-top: 1px solid var(--line); }
