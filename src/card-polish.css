@@ -13,8 +13,10 @@ body {
 }
 
 .brand { font-size: 19px; letter-spacing: -1.4px; }
-.logo { display: inline-flex; align-items: center; gap: 8px; color: var(--ink); font-weight: 700; text-decoration: none; }
-.logo img { width: 56px; height: 36px; object-fit: contain; object-position: center; border-radius: 8px; background: #050505; }
+.logo { display: inline-flex; align-items: center; color: var(--ink); font-weight: 700; text-decoration: none; transition: opacity .2s ease, transform .2s ease; }
+.logo:hover { opacity: .92; transform: translateY(-1px); }
+.logo img { width: 258px; height: 74px; object-fit: contain; object-position: center; border-radius: 10px; flex: 0 0 auto; }
+.logo span { font-size: 21px; letter-spacing: -1px; }
 .nav-login { color: var(--ink); font-weight: 600; }
 .links .nav-login { display: block; }
 .auth-brand .brand { display: inline-flex; align-items: center; gap: 8px; text-decoration: none; color: var(--ink); font-weight: 700; }
@@ -248,6 +250,16 @@ body {
   @media(max-width:800px) {
     nav.site-nav .links { gap: 12px; }
     nav.site-nav .links .nav-login { display: block; }
+    .logo img { width: 202px; height: 62px; }
+    .logo span { font-size: 19px; }
+  }
+  @media(max-width:480px) {
+    header.site-header nav.site-nav, nav.site-nav { gap: 8px; }
+    .logo { gap: 8px; }
+    .logo img { width: 170px; height: 52px; border-radius: 8px; }
+    .logo span { font-size: 17px; letter-spacing: -.8px; }
+    nav.site-nav .links { gap: 5px; }
+    nav.site-nav .links .btn-sm { display: inline-flex; align-items: center; justify-content: center; min-width: 94px; padding: 8px 6px; font-size: 11px; line-height: 1.1; text-align: center; }
   }
   @media(max-width:600px) {
     .admin-summary-grid { grid-template-columns: 1fr; }

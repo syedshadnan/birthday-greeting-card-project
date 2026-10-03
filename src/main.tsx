@@ -16,7 +16,7 @@ const templates:{id:TemplateId;name:string;tag:string;emoji:string;className:str
 const sample:CardData={recipient:'Maya',message:'Here’s to a year full of bright little moments, brave choices, and reasons to laugh until it hurts.',sender:'With all my love, Rhea',photos:['https://images.unsplash.com/photo-1524250502761-1ac6f2e30d43?auto=format&fit=crop&w=700&q=85','https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91?auto=format&fit=crop&w=700&q=85'],template:'romantic'}
 const getTemplate=(id:TemplateId)=>templates.find(x=>x.id===id)!
 const themeForTemplate=(id:string):CardTheme=>id==='romantic'?'rose-romantic':id==='cinematic'?'cinematic':id==='elegant'?'elegant':id==='friend'?'friend':id==='funny'?'funny':id==='minimal'?'minimal':id==='party'?'party':'cute'
-function Brand(){return <a className="logo" href="/" onClick={e=>{e.preventDefault();navigate('/')}}><img src="/images/birthday-smile-logo.jpeg" alt="BirthdaySmile" /><span>BirthdaySmile</span></a>}
+function Brand(){return <a className="logo" href="/" onClick={e=>{e.preventDefault();navigate('/')}}><img src="/images/birthday-smile-logo.png" alt="BirthdaySmile" /></a>}
 function navigate(path:string){history.pushState({},'',path);window.dispatchEvent(new PopStateEvent('popstate'))}
 function Button({children,onClick,variant='dark',type='button',disabled=false}:{children:React.ReactNode;onClick?:()=>void;variant?:string;type?:'button'|'submit';disabled?:boolean}){return <button type={type} className={'button '+variant} onClick={onClick} disabled={disabled}>{children}</button>}
 function Nav(){
