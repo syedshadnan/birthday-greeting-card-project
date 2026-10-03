@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { cardThemes } from '../../../../lib/cards/themes'
 import { defaultBirthdayMusic } from '../../../../lib/cards/music'
-import { supabaseRequest } from '../../../../lib/supabase/server'
+import { createSupabaseServerClient, supabaseRequest } from '../../../../lib/supabase/server'
 import { hasCardAccess } from '../../../../lib/cards/password'
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -12,7 +12,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 
   try {
     const response = await supabaseRequest(
-      `/rest/v1/cards?public_id=eq.${id}&status=in.(draft,published)&select=id,public_id,template_slug,theme,language,card_config,recipient_name,sender_name,message,music_url,expires_at,password_salt,password_hash,password_hint,share_enabled_at,card_photos(image_url,sort_order)&limit=1`,
+      `/rest/v1/cards?public_id=eq.${id}&status=in.(draft,published)&select=id,public_id,user_id,template_slug,theme,language,card_config,recipient_name,sender_name,message,music_url,expires_at,password_salt,password_hash,password_hint,share_enabled_at,card_photos(image_url,sort_order)&limit=1`,
     )
     const [card] = await response.json()
 
@@ -20,18 +20,24 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     if (new Date(card.expires_at).getTime() <= Date.now()) {
       return NextResponse.json({ error: 'This birthday card has expired.' }, { status: 410 })
     }
-    if (!card.share_enabled_at) {
+    const authClient = await createSupabaseServerClient()
+    const { data: { user } } = authClient ? await authClient.auth.getUser() : { data: { user: null } }
+    const isOwner = Boolean(user?.id && user.id === card.user_id)
+
+    if (!isOwner && !card.share_enabled_at) {
       return NextResponse.json({ error: 'This birthday card is not available until its owner signs in and shares it.' }, { status: 403 })
     }
 
-    const paidOrderResponse = await supabaseRequest(
-      `/rest/v1/orders?card_id=eq.${encodeURIComponent(card.id)}&status=eq.paid&select=id&limit=1`,
-    )
-    const [paidOrder] = await paidOrderResponse.json() as { id: string }[]
-    if (!paidOrder) {
-      return NextResponse.json({ error: 'This birthday card is not available until payment is verified.' }, { status: 403 })
+    if (!isOwner) {
+      const paidOrderResponse = await supabaseRequest(
+        `/rest/v1/orders?card_id=eq.${encodeURIComponent(card.id)}&status=eq.paid&select=id&limit=1`,
+      )
+      const [paidOrder] = await paidOrderResponse.json() as { id: string }[]
+      if (!paidOrder) {
+        return NextResponse.json({ error: 'This birthday card is not available until payment is verified.' }, { status: 403 })
+      }
     }
-    if (card.password_hash && !hasCardAccess(_request, id)) {
+    if (!isOwner && card.password_hash && !hasCardAccess(_request, id)) {
       return NextResponse.json({
         locked: true,
         passwordHint: card.password_hint ?? '',
