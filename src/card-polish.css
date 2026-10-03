@@ -21,8 +21,9 @@ body {
 .links .nav-login { display: block; }
 .auth-brand .brand { display: inline-flex; align-items: center; gap: 8px; text-decoration: none; color: var(--ink); font-weight: 700; }
 .auth-brand .brand img { width: 56px; height: 36px; object-fit: contain; object-position: center; border-radius: 8px; background: #050505; vertical-align: middle; }
-.builder-header .brand,.story-header .brand { display: inline-flex; align-items: center; gap: 8px; }
-.builder-header .brand img,.story-header .brand img { width: 48px; height: 30px; object-fit: contain; background: #050505; border-radius: 6px; }
+.builder-header .brand,.story-controls .brand,.auth-brand .brand { display: inline-flex; align-items: center; justify-content: flex-start; }
+.builder-header .brand img,.story-controls .brand img { width: 92px; height: 30px; object-fit: contain; object-position: left center; }
+.story-controls .brand { width: 92px; height: 30px; overflow: hidden; }
 .brand span { color: #d65b47; }
 .button { border-radius: 999px; padding: 14px 21px; transition: transform .2s ease, background-color .2s ease, box-shadow .2s ease; }
 .button:hover:not(:disabled) { transform: translateY(-2px); background: #4b405d; box-shadow: 0 8px 20px #302d4320; }
