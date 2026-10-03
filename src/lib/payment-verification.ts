@@ -12,7 +12,7 @@ export type ParsedSms = {
   balance: number | null
 }
 
-const bkashPattern = /^You have received Tk (\d+\.\d{2}) from (01[3-9]\d{8})\. Fee Tk (\d+\.\d{2})\. Balance Tk (\d+\.\d{2})\. TrxID ([A-Z0-9]+) at (\d{2}\/\d{2}\/\d{4} \d{2}:\d{2})$/
+const bkashPattern = /^You have received Tk (\d+\.\d{2}) from (01[3-9]\d{8})\. Fee Tk (\d+\.\d{2})\. Balance Tk ((?:\d{1,3}(?:,\d{3})*|\d+)\.\d{2})\. TrxID ([A-Z0-9]+) at (\d{2}\/\d{2}\/\d{4} \d{2}:\d{2})$/
 const nagadPattern = /^Money Received\.\r?\nAmount: Tk (\d+\.\d{2})\r?\nSender: (01[3-9]\d{8})\r?\nRef: (.+)\r?\nTxnID: ([A-Z0-9]+)\r?\nBalance: Tk (\d+\.\d{2})\r?\n(\d{2}\/\d{2}\/\d{4} \d{2}:\d{2})$/
 
 function timestamp(value: string) {
@@ -28,7 +28,7 @@ export function parseSupportedSms(message: unknown): ParsedSms | null {
   if (bkash) return {
     provider: 'bkash', direction: 'received', amountBdt: Number(bkash[1]),
     senderPhone: normalizeBangladeshPhone(bkash[2]), transactionId: bkash[5],
-    providerTimestamp: timestamp(bkash[6]), fee: Number(bkash[3]), reference: null, balance: Number(bkash[4]),
+    providerTimestamp: timestamp(bkash[6]), fee: Number(bkash[3]), reference: null, balance: Number(bkash[4].replace(/,/g, '')),
   }
   const nagad = nagadPattern.exec(message)
   if (!nagad) return null
