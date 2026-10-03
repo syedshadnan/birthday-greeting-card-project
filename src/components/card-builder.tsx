@@ -325,7 +325,7 @@ export default function CardBuilder({ initialTheme = 'cute', themeChoices = clas
   }
 
   return <main className="builder-page">
-    <header className="builder-header"><a className="brand" href="/">✦ wishwell</a><span>All 9 scenes · Free</span></header>
+    <header className="builder-header"><a className="brand" href="/"><img src="/images/birthday-smile-logo.jpeg" alt="BirthdaySmile" /> BirthdaySmile</a><span>All 9 scenes · Free</span></header>
     <section className="builder-shell">
       <div className="builder-title"><span className="eyebrow">A CARD MADE BY YOU</span><h1>Make their day<br/><i>feel like yours.</i></h1><p>Write it in English, বাংলা, or a little of both.</p></div>
       <ol className="builder-progress" aria-label="Card creation steps">{steps.map((label, index)=><li className={index===step?'current':index<step?'complete':''} key={label}><span>{index+1}</span>{label}</li>)}</ol>

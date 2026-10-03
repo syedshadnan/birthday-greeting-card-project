@@ -253,7 +253,7 @@ export default function CardExperience({ slug, adminPreviewId, previewCard, onEx
   const wishes = config?.reasons.filter(reason => reason.trim()) ?? []
 
   if (lockedCard) return <main className={gateStyles.page}><section className={gateStyles.card} lang={lockedCard.language}>
-    <a className={gateStyles.brand} href="/">✦ wishwell</a>
+    <a className={gateStyles.brand} href="/"><img src="/images/birthday-smile-logo.jpeg" alt="BirthdaySmile" /> BirthdaySmile</a>
     <div className={gateStyles.seal} aria-hidden="true">✦</div>
     <span className={gateStyles.eyebrow}>{lockedCard.language === 'bn' ? 'শুধু তোমার জন্য' : 'A PRIVATE BIRTHDAY SURPRISE'}</span>
     <h1>{lockedCard.language === 'bn' ? 'একটি ছোট্ট চমক' : 'A little surprise'}</h1>
@@ -393,7 +393,7 @@ export default function CardExperience({ slug, adminPreviewId, previewCard, onEx
       {onExitPreview ? (
         <button className="brand" type="button" onClick={onExitPreview}>← Back to editing</button>
       ) : (
-        <a className="brand" href={adminPreviewId?'/admin':'/'}>{adminPreviewId?'← Back to admin':'✦ wishwell'}</a>
+        <a className="brand" href={adminPreviewId?'/admin':'/'}>{adminPreviewId?'← Back to admin':<><img src="/images/birthday-smile-logo.jpeg" alt="BirthdaySmile" /> BirthdaySmile</>}</a>
       )}
       <div className="story-controls-right">
         {card.musicUrl || usesSoftMusic

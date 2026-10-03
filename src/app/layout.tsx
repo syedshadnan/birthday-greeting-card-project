@@ -8,7 +8,7 @@ const siteUrl = getSiteUrl()
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
-  title: { default: 'Create Beautiful Birthday Cards Online — Free | Wishwell', template: '%s | Wishwell' },
+  title: { default: 'Create Beautiful Birthday Cards Online — Free | BirthdaySmile', template: '%s | BirthdaySmile' },
   description: 'Create personalized digital birthday cards with photos, music, messages, and beautiful animations. Free to use.',
   keywords: [
     'birthday card',
@@ -17,21 +17,21 @@ export const metadata: Metadata = {
     'free animated birthday card',
     'birthday card with music and photos',
     'happy birthday card maker',
-    'wishwell cards',
+    'BirthdaySmile cards',
   ],
-  authors: [{ name: 'Wishwell' }],
-  creator: 'Wishwell',
+  authors: [{ name: 'BirthdaySmile' }],
+  creator: 'BirthdaySmile',
   alternates: { canonical: '/' },
   openGraph: {
     type: 'website',
-    siteName: 'Wishwell',
+    siteName: 'BirthdaySmile',
     title: 'Create Beautiful Birthday Cards Online — Free',
     description: 'Personal birthday cards with photos, music, and beautiful animations.',
     url: siteUrl,
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Create Beautiful Birthday Cards Online — Free | Wishwell',
+    title: 'Create Beautiful Birthday Cards Online — Free | BirthdaySmile',
     description: 'Personal birthday cards with photos, music, and beautiful animations.',
   },
   verification: {
@@ -42,7 +42,7 @@ export const metadata: Metadata = {
 const jsonLd = {
   '@context': 'https://schema.org',
   '@type': 'WebApplication',
-  name: 'Wishwell',
+  name: 'BirthdaySmile',
   url: siteUrl,
   description: 'Create personalized digital birthday cards with photos, music, messages, and beautiful animations. Free to use.',
   applicationCategory: 'MultimediaApplication',
