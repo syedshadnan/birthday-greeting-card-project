@@ -3,6 +3,9 @@ import AccountActions from '../../components/account-actions'
 import AccountCardActions from '../../components/account-card-actions'
 import { getCurrentOwnedCards, getCurrentProfile, getCurrentUser } from '../../lib/auth'
 
+export const metadata = { title: 'My Account', robots: { index: false, follow: false } }
+
+
 export default async function AccountPage() {
   const user = await getCurrentUser()
   if (!user) {

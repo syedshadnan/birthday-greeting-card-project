@@ -158,22 +158,32 @@ function HeroSection(){
 function FeaturedCardsSection() {
   const t = getTemplate('romantic')
   return (
-    <section className="featured-cards-section" id="premium-cards" data-reveal>
-      <div className="featured-cards-inner">
-        <article className="featured-card">
-          <div className={`ts-card-preview ${t.className}`} role="img" aria-label={`${t.name} birthday card preview`}>
-            <div className="ts-card-decor">{t.emoji}</div>
-            <div className="ts-card-decor ts-card-decor2">&#10022;</div>
-            <div className="ts-card-body"><span>happy birthday</span><strong>for you</strong><em>made with love</em></div>
-            <div className="ts-card-badge"><span>{t.name}</span><small>{t.tag}</small></div>
+    <section className="feat-section" id="templates" data-reveal>
+      <div className="feat-bg" aria-hidden="true" />
+      <div className="feat-inner">
+        <div className="feat-label">
+          <span className="eyebrow">THERE&apos;S A CARD FOR EVERY KIND OF LOVE</span>
+        </div>
+        <a
+          className="feat-card"
+          href="/create"
+          aria-label="Create a birthday card — 8 designs to choose from"
+          onClick={e => { e.preventDefault(); navigate('/create') }}
+        >
+          <div className={`feat-card-art ${t.className}`}>
+            <div className="feat-card-decor">{t.emoji}</div>
+            <div className="feat-card-body">
+              <span>happy birthday</span>
+              <strong>for you</strong>
+              <em>made with love</em>
+            </div>
           </div>
-          <div className="featured-card-copy">
-            <span className="eyebrow">A LITTLE SOMETHING SPECIAL</span>
-            <h2>A birthday card<br /><i>made with love.</i></h2>
-            <p>Make this sweet card your own with a heartfelt note, favorite photos, and a song they love.</p>
-            <button className="ts-create-btn" onClick={() => navigate('/create/' + t.id)}>Create this card <span className="arr">&rarr;</span></button>
+          <div className="feat-card-info">
+            <h2>One card,<br /><i>made personal.</i></h2>
+            <p>8 original designs. Add your words, favorite photos, and a song they love.</p>
+            <span className="feat-cta">Choose your design <b aria-hidden="true">→</b></span>
           </div>
-        </article>
+        </a>
       </div>
     </section>
   )

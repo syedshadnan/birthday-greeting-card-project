@@ -2206,3 +2206,203 @@ a.ghost:focus-visible,
     transition-duration: .01ms;
   }
 }
+
+/* =====================================================
+   GLOBAL POLISH: BUTTON UNDERLINES, CINEMATIC CONTRAST,
+   LOADING STATES, MICRO-INTERACTIONS
+   ===================================================== */
+
+/* ── 1. Remove accidental underlines from buttons & interactive elements ── */
+button,
+[role="button"],
+.button,
+.btn,
+.btn-sm,
+.ghost,
+.ts-create-btn,
+.feat-cta,
+.google-button,
+.auth-submit,
+.theme-choice,
+.template-tile,
+.admin-nav-card,
+.payment-method-card,
+a.button,
+a.btn-sm,
+a.feat-card,
+a.classic-template-tile {
+  text-decoration: none !important;
+}
+
+/* Keep intentional link underlines on hover for text links */
+.legal-page a:not(.button):hover,
+.auth-switch a:hover {
+  text-decoration: underline;
+}
+
+/* ── 2. Cinematic / dark card template — ensure text is always readable ── */
+/* Old card-builder .ink class */
+.mini-card.ink,
+.card-preview.ink {
+  color: #f6e3be !important;
+}
+.mini-card.ink .card-content h3,
+.card-preview.ink .card-content h3 { color: #f9e7c4 !important; }
+.mini-card.ink .card-content p,
+.card-preview.ink .card-content p { color: #e8d5ac !important; }
+.mini-card.night,
+.card-preview.night {
+  color: #f6e3be !important;
+}
+
+/* New builder cinematic theme */
+.theme-cinematic {
+  --story-ink: #f0e6d0 !important;
+  color: #f0e6d0 !important;
+}
+.theme-cinematic h1,
+.theme-cinematic h2,
+.theme-cinematic h3,
+.theme-cinematic p,
+.theme-cinematic span,
+.theme-cinematic strong,
+.theme-cinematic em {
+  color: inherit;
+}
+.theme-cinematic .story-intro p,
+.theme-cinematic .scene-kicker {
+  opacity: .88;
+}
+
+/* ── 3. Button loading state — consistent spinner style ── */
+.button.is-loading,
+.btn.is-loading,
+.ts-create-btn.is-loading,
+.feat-cta.is-loading {
+  opacity: .75;
+  cursor: wait;
+  pointer-events: none;
+}
+
+/* Inline spinner for buttons */
+.btn-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  margin-right: 8px;
+  border: 2px solid rgba(255,255,255,0.35);
+  border-top-color: rgba(255,255,255,0.9);
+  border-radius: 50%;
+  vertical-align: -2px;
+  animation: btnSpin .65s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes btnSpin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── 4. Nav link active/current state ── */
+nav.site-nav .links a[aria-current="page"] {
+  color: var(--ink, #302d43);
+  font-weight: 600;
+}
+
+/* ── 5. Smooth hover transitions on admin cards ── */
+.admin-nav-card {
+  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+  text-decoration: none !important;
+  cursor: pointer;
+}
+.admin-nav-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 18px 45px #302d4312;
+}
+
+/* ── 6. Template tile — remove underline, ensure consistent spacing ── */
+.template-tile,
+.template-tile > span {
+  text-decoration: none !important;
+}
+
+/* ── 7. Account page card hover ── */
+.account-card-premium {
+  cursor: default;
+}
+.account-card-copy {
+  text-decoration: none !important;
+}
+
+/* ── 8. Login page — button-like links no underline ── */
+.auth-switch button,
+.auth-password-field button {
+  text-decoration: none !important;
+}
+
+/* ── 9. Featured card section — no underline on card-as-link ── */
+.feat-card,
+.feat-card * {
+  text-decoration: none !important;
+}
+
+/* ── 10. Classic template tile — no underline ── */
+.classic-template-tile {
+  text-decoration: none !important;
+}
+.classic-template-tile:hover .classic-template-art .mini-card {
+  transform: translateY(-4px) rotate(-.5deg);
+}
+
+/* ── 11. Footer socials — no underline (already styled) ── */
+footer a {
+  text-decoration: none;
+}
+
+/* ── 12. Share page native share button ── */
+.share-native {
+  text-decoration: none !important;
+}
+
+/* ── 13. Admin payment link ── */
+.admin-payment > a {
+  text-decoration: none;
+}
+.admin-payment > a:hover {
+  text-decoration: underline;
+}
+
+/* ── 14. Smooth card builder transitions ── */
+.theme-choice {
+  transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease;
+}
+.builder-progress li {
+  transition: color .18s ease;
+}
+
+/* ── 15. SEO / Accessibility — skip link ── */
+.skip-link {
+  position: absolute;
+  top: -100%;
+  left: 8px;
+  z-index: 9999;
+  padding: 10px 16px;
+  background: var(--ink, #302d43);
+  color: #fff;
+  border-radius: 0 0 8px 8px;
+  font-weight: 600;
+  font-size: 14px;
+  text-decoration: none;
+  transition: top .1s;
+}
+.skip-link:focus {
+  top: 0;
+}
+
+/* ── 16. Consistent focus ring ── */
+:focus-visible {
+  outline: 3px solid #d56954;
+  outline-offset: 3px;
+}
+/* Only show for keyboard nav, not mouse clicks */
+:focus:not(:focus-visible) {
+  outline: none;
+}
